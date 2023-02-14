@@ -21,9 +21,9 @@ class AuthController extends Controller
      *
      * @return void
      */
-    public function __construct() {
-        $this->middleware('auth:api', ['except' => ['login', 'register']]);
-    }
+//    public function __construct() {
+//        $this->middleware('auth:api', ['except' => ['login', 'register']]);
+//    }
 
     /**
      * Get a JWT via given credentials.
@@ -74,7 +74,7 @@ class AuthController extends Controller
         }
         $user = User::create(array_merge(
             $validator->validated(),
-            ['password' => bcrypt($request->password)],
+            ['password' => bcrypt($request->password)]
         ));
         return response()->json([
             'message' => 'User successfully registered',
@@ -88,6 +88,39 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
+    public function logout(Request $request) {
+        $access_token = Cookie::get('access_token');
+        $refresh_token = Cookie::get('refresh_token');
+        $user_id = Cookie::get('user_id');
+
+        $token = Token::where('access_token', $access_token)->where('user_id', $user_id)->first();
+        if($token) {
+            $token->delete();
+            try {
+
+                Cookie::queue(Cookie::forget('access_token'));
+                Cookie::queue(Cookie::forget('refresh_token'));
+                Cookie::queue(Cookie::forget('user_id'));
+
+                return response()->json([
+                    'message' => 'User successfully signed out'
+                ]);
+            }
+            catch(Exception $e) {
+                return response()->json([
+                    'message' => 'User not found'
+                ]);
+            }
+
+        }else {
+            return response()->json([
+                'message' => 'User not found'
+            ]);
+        }
+
+
+
+    }
 
     /**
      * Refresh a token.
@@ -104,9 +137,41 @@ class AuthController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
     public function userProfile() {
-        return response()->json(auth()->user());
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $token = Token::where('access_token', $access_token)->where('user_id', $user_id)->first();
+        $time = $this->check_time($token->access_token, $token->refresh_token);
+        if($time) {
+            return response()->json(User::where('id', $user_id)->first());
+        }else {
+            $refresh_token = Cookie::get('refresh_token');
+            $token = Token::where('refresh_token', $refresh_token)->first();
+            $token->delete();
+
+            Cookie::queue(Cookie::forget('access_token'));
+            Cookie::queue(Cookie::forget('refresh_token'));
+            Cookie::queue(Cookie::forget('user_id'));
+
+            $this->createNewToken($token->refresh_token);
+            return response()->json(User::where('id', $user_id)->first());
+        }
     }
 
+    public function check_time($access_token, $refesh_token) {
+        $token = Token::where('access_token', $access_token)->where('refresh_token', $refesh_token)->first();
+        if($token) {
+            $time = $token->expires_in_access_token;
+            $time = strtotime($time);
+            $now = time();
+            if($now > $time) {
+                return false;
+            }else {
+                return true;
+            }
+        }else {
+            return false;
+        }
+    }
     /**
      * Get the token array structure.
      *
