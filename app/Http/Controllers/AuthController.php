@@ -363,6 +363,44 @@ class AuthController extends Controller
         }
     }
 
+    public function change_avatar(Request $request) {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+
+        if ($access_token == null and $user_id == null){
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        }else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            $redis->close();
+            if($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            }else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $user_query = $request->query('account');
+                    $user = User::where('id', $user_query)->first();
+                    if ($user) {
+                        $user->avatar = $request->avatar;
+                        $user->save();
+                        return response()->json([
+                            'account' => 'change avatar: success',
+                        ]);
+                    } else {
+                        return response()->json([
+                            'account' => 'change avatar: account is not existed',
+                        ], 400);
+                    }
+                }
+            }
+        }
+    }
+
     public function check_time($access_token, $refesh_token) {
         $token = Token::where('access_token', $access_token)->where('refresh_token', $refesh_token)->first();
         if($token) {

@@ -24,6 +24,7 @@ Route::prefix('/')->group(
         Route::get('/account/manage/info/load', [AuthController::class, 'userProfile']);
         Route::post('/account/manage/info/edit', [AuthController::class, 'updateProfile']);
         Route::post('/account/manage/password/change', [AuthController::class, 'change_password']);
+        Route::post('/account/manage/avatar/update', [AuthController::class, 'change_avatar']);
 
 
         // Route get connect with param message = checking
