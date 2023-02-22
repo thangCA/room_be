@@ -21,26 +21,20 @@ Route::prefix('/')->group(
         Route::post('/registration', [AuthController::class, 'register'])->name('registration');
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::post('/refresh', [AuthController::class, 'refresh'])->name('refresh');
-        Route::get('/user-profile', [AuthController::class, 'userProfile']);
+        Route::get('/account/manage/info/load', [AuthController::class, 'userProfile']);
         Route::post('/change-pass', [AuthController::class, 'changePassWord']);
 
 
         // Route get connect with param message = checking
         // url = http://localhost:5000/api/?message=checking
-        $url = url('/') . '?' . http_build_query(['message' => 'checking']);
-        Route::get('/', function (Request $request) use ($url) {
-            $message = $request->message;
+        Route::get('/', function (Request $request) {
+            $message = $request->query('message');
             if ($message == 'checking') {
                 return response()->json([
                     'connection' => 'success',
                 ]);
-            } else {
-                return response()->json([
-                    'connection' => 'failed',
-                ]);
             }
-        })->name('check_connection');
-
+        });
     }
 );
 

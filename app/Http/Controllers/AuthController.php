@@ -1,11 +1,13 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Models\store;
 use App\Models\Token;
 use Illuminate\Http\Request;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use mysql_xdevapi\Exception;
 use Redis;
@@ -83,9 +85,16 @@ class AuthController extends Controller
     {
         $user = User::where('accountEmail', $request->accountEmail)->first();
         if (password_verify($request->accountPassword, $user->accountPassword)) {
+            $store_id = DB::table('store')->where('account_id', $user->id)->first();
+            if ($store_id != null){
+                $store_id = $store_id->id;
+            } else {
+                $store_id = '';
+            }
             $resp = [
                 'message' => 'success',
                 'accountId' => $user->accountEmail,
+                'storeId' => $store_id,
             ];
             $token = JWTAuth::fromUser($user);
 
@@ -219,24 +228,45 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function userProfile() {
+    public function userProfile(Request $request){
         $access_token = Cookie::get('access_token');
         $user_id = Cookie::get('user_id');
-        $token = Token::where('access_token', $access_token)->where('user_id', $user_id)->first();
-        $time = $this->check_time($token->access_token, $token->refresh_token);
-        if($time) {
-            return response()->json(User::where('id', $user_id)->first());
+
+        if ($access_token == null and $user_id == null){
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
         }else {
-            $refresh_token = Cookie::get('refresh_token');
-            $token = Token::where('refresh_token', $refresh_token)->first();
-            $token->delete();
-
-            Cookie::queue(Cookie::forget('access_token'));
-            Cookie::queue(Cookie::forget('refresh_token'));
-            Cookie::queue(Cookie::forget('user_id'));
-
-            $this->createNewToken($token->refresh_token);
-            return response()->json(User::where('id', $user_id)->first());
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            $redis->close();
+            if($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            }else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $user_query = $request->query('account');
+                    $user = User::where('id', $user_query)->first();
+                    if ($user) {
+                        return response()->json([
+                            '_id' => $user->id,
+                            'avatar' => $user->accountAvatar ? $user->accountAvatar : '',
+                            'cart' => DB::table('cart')->where('account_id', $user->id)->get() ? DB::table('cart')->where('account_id', $user->id)->get() : [],
+                            'email' => $user->accountEmail,
+                            'name' => $user->accountName,
+                            'order' => DB::table('order')->where('account_id', $user->id)->get() ? DB::table('order')->where('account_id', $user->id)->get() : [],
+                            'phone' => $user->accountPhone,
+                        ]);
+                    } else {
+                        return response()->json([
+                            'user' => 'not found',
+                        ], 400);
+                    }
+                }
+            }
         }
     }
 
