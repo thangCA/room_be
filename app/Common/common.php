@@ -2,18 +2,16 @@
 
 namespace App\Common;
 
+use App\Models\User;
+
 class common
 {
-    public function validatePhone($phone){
-        $phone = str_replace(' ', '', $phone);
-        $phone = str_replace('-', '', $phone);
-        $phone = str_replace('(', '', $phone);
-        $phone = str_replace(')', '', $phone);
-        $phone = str_replace('+', '', $phone);
-        if (preg_match('/^0[0-9]{9,10}$/', $phone)) {
-            return true;
+    public function check_phone_existed($phone) {
+        $user = User::where('accountPhone', $phone)->first();
+        if($user) {
+            return false;
         }
-        return false;
+        return true;
     }
     public function generateRandomString($length = 10) {
         $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -23,6 +21,14 @@ class common
             $randomString .= $characters[rand(0, $charactersLength - 1)];
         }
         return $randomString;
+    }
+
+    public function check_email_existed($email) {
+        $user = User::where('accountEmail', $email)->first();
+        if($user) {
+            return false;
+        }
+        return true;
     }
 
 }
