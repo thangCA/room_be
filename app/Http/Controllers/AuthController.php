@@ -269,6 +269,99 @@ class AuthController extends Controller
             }
         }
     }
+    public function updateProfile(Request $request) {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+
+        if ($access_token == null and $user_id == null){
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        }else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            $redis->close();
+            if($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            }else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $user_query = $request->query('account');
+                    $user = User::where('id', $user_query)->first();
+                    if ($user) {
+                        $user->accountName = $request->accountName;
+                        $user->accountPhone = $request->accountPhone;
+                        $email = User::query()->where('accountEmail', $request->accountEmail)->first();
+                        if ($email) {
+                            return response()->json([
+                                'account' => 'edit account info: email is existed',
+                            ], 400);
+                        }else{
+                            $user->accountEmail = $request->accountEmail;
+                            $user->save();
+                            return response()->json([
+                                'account' => 'edit account info: success',
+                            ]);
+                        }
+                    } else {
+                        return response()->json([
+                            'account' => 'edit account info: account is not existed',
+                        ], 400);
+                    }
+                }
+
+            }
+        }
+    }
+
+    public function change_password(Request $request) {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+
+        if ($access_token == null and $user_id == null){
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        }else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            $redis->close();
+            if($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            }else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $user_query = $request->query('account');
+                    $user = User::where('id', $user_query)->first();
+                    if ($user) {
+                        $old_password = $request->old_password;
+                        $new_password = $request->new_password;
+                        if (password_verify($old_password, $user->accountPassword)) {
+                            $user->accountPassword = bcrypt($new_password);
+                            $user->save();
+                            return response()->json([
+                                'account' => 'change password: success',
+                            ]);
+                        }else {
+                            return response()->json([
+                                'account' => 'change password: old password is not correct',
+                            ], 400);
+                        }
+                    } else {
+                        return response()->json([
+                            'account' => 'change password: account is not existed',
+                        ], 400);
+                    }
+                }
+            }
+        }
+    }
 
     public function check_time($access_token, $refesh_token) {
         $token = Token::where('access_token', $access_token)->where('refresh_token', $refesh_token)->first();

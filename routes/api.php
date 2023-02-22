@@ -22,7 +22,8 @@ Route::prefix('/')->group(
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::post('/refresh', [AuthController::class, 'refresh'])->name('refresh');
         Route::get('/account/manage/info/load', [AuthController::class, 'userProfile']);
-        Route::post('/change-pass', [AuthController::class, 'changePassWord']);
+        Route::post('/account/manage/info/edit', [AuthController::class, 'updateProfile']);
+        Route::post('/account/manage/password/change', [AuthController::class, 'change_password']);
 
 
         // Route get connect with param message = checking
