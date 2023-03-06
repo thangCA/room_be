@@ -25,6 +25,13 @@ Route::prefix('/')->group(
         Route::post('/account/manage/info/edit', [AuthController::class, 'updateProfile']);
         Route::post('/account/manage/password/change', [AuthController::class, 'change_password']);
         Route::post('/account/manage/avatar/update', [AuthController::class, 'change_avatar']);
+        Route::post('/authentication/password/forgot', [AuthController::class, 'send_email_change_password']);
+        Route::post('/authentication/password/reset', [AuthController::class, 'reset_password']);
+
+        //================================================================================================//
+        Route::post('/store/create', [AuthController::class, 'create_store']);
+        Route::get('/store/manage/info/load', [AuthController::class, 'load_store']);
+        Route::post('/store/manage/info/edit', [AuthController::class, 'update_store']);
 
 
         // Route get connect with param message = checking
