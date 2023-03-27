@@ -38,55 +38,15 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-//    public function login(Request $request){
-//
-//        $validator = Validator::make($request->all(), [
-//            'accountEmail' => 'required|string|email',
-//            'accountPassword' => 'required|string',
-//            'remember_me' => 'boolean'
-//        ]);
-//        if($validator->fails()){
-//            return response()->json($validator->errors()->toJson(), 400);
-//        }
-//        $credentials = request(['accountEmail', 'accountPassword']);
-//        $check = User::where('accountEmail', $request->accountEmail)->first();
-//        if(!$check){
-//            return response()->json([
-//                'error' => 'Email does not exist',
-//            ], 401);
-//        }
-//        $password = $check->accountPassword;
-//        if ($check->accountPassword != $request->accountPassword){
-//            return response()->json([
-//                'error' => 'Password is incorrect',
-//            ], 401);
-//        }
-//        $token = Auth::attempt($credentials);
-//        //why undefined variable $user_id ?
-//        // answer: because you have to declare it first
-//        $user = User::where('accountEmail', $request->accountEmail)->first();
-//        $user_id = $user->id;
-//        $access_token = $token;
-//        $refresh_token = Str::random(60);
-//        Token::create([
-//            'user_id' => $user_id,
-//            'access_token' => $access_token,
-//            'refresh_token' => $refresh_token,
-//        ]);
-//        $cookie = cookie('access_token', $access_token, 60);
-//        $cookie1 = cookie('refresh_token', $refresh_token, 60);
-//        $cookie2 = cookie('user_id', $user_id, 60);
-//        return response()->json([
-//            'login' => 'handle login: success',
-//            'access_token' => $access_token,
-//            'refresh_token' => $refresh_token,
-//            'user_id' => $user_id,
-//        ])->withCookie($cookie)->withCookie($cookie1)->withCookie($cookie2);
-//    }
     public function login(Request $request)
 
     {
         $user = User::where('accountEmail', $request->accountEmail)->first();
+        if ($user == null) {
+            return response()->json([
+                'message' => 'handle authentication: wrong email or password',
+            ]);
+        }
         if (password_verify($request->accountPassword, $user->accountPassword)) {
             $store_id = DB::table('store')->where('account_id', $user->id)->first();
             if ($store_id != null) {
@@ -94,17 +54,29 @@ class AuthController extends Controller
             } else {
                 $store_id = '';
             }
+            $token = JWTAuth::fromUser($user);
             $resp = [
-                'message' => 'success',
-                'accountId' => $user->accountEmail,
+                'message' => 'handle authentication: success',
+                'accountId' => $user->id,
                 'storeId' => $store_id,
             ];
-            $token = JWTAuth::fromUser($user);
+            $expires = time() + 60 * 60 * 24;
+            $access_token = $this->set_cookie($token, $user->id);
+            //set cookie
+            $cookie = cookie('access_token', $access_token, $expires, '/');
+            $cookie1 = cookie('user_id', $user->id, $expires, '/');
 
-            $this->set_cookie($token, $user->id);
+
+
             return response()->json([
                 "authentication" => $resp
-            ]);
+            ])->withHeaders(
+                [
+                    'access_token' => $access_token,
+                    'user_id' => $user->id,
+                ]
+            )->withCookie($cookie)->withCookie($cookie1
+            );
         } else {
             return response()->json([
                 'authentication' => "handle authentication: wrong email or password",
@@ -120,8 +92,8 @@ class AuthController extends Controller
     {
         $access_token = $token;
         $expires = time() + 60 * 60 * 24;
-        setcookie('access_token', $access_token, $expires, '/');
-        setcookie('user_id', $user_id, $expires, '/');
+//        setcookie('access_token', $access_token, $expires, '/');
+//        setcookie('user_id', $user_id, $expires, '/');
         $redis = new Redis();
         $redis->connect('127.0.0.1', 6379);
         $data = [
@@ -131,6 +103,7 @@ class AuthController extends Controller
         ];
         $redis->set($user_id, json_encode($data), $expires);
         $redis->close();
+        return $access_token;
     }
 
     public function delete_cookie($user_id)
@@ -167,27 +140,31 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'accountName' => 'required|string|between:2,100',
-            'accountEmail' => 'required|string|email|max:100|unique:users',
-            'accountPassword' => 'required|string|confirmed|min:6',
-            'accountPhone' => 'required|string|between:10,11',
-
-        ]);
-        if ($validator->fails()) {
+        $accountPassword_confirmation = $request->accountPassword;
+        if ($request->accountPassword != $accountPassword_confirmation) {
             return response()->json([
                 'register' => 'handle register: invalid credentials',
-                'errors' => $validator->errors()->toJson()
+                'errors' => 'password not match'
             ], 400);
         }
-        $user = User::create(array_merge(
-            $validator->validated(),
-            ['accountPassword' => bcrypt($request->accountPassword)]
-        ));
+        $user_check = User::where('accountEmail', $request->accountEmail)->first();
+        if ($user_check != null) {
+            return response()->json([
+                'register' => 'handle register: invalid credentials',
+                'errors' => 'email already exists'
+            ], 400);
+        }
+
+        $user = DB::table('users')->insert(
+            [
+                'accountName' => $request->accountName,
+                'accountEmail' => $request->accountEmail,
+                'accountPassword' => password_hash($request->accountPassword, PASSWORD_DEFAULT),
+                'accountPhone' => $request->accountPhone,
+            ]
+        );
         return response()->json([
             'register' => 'handle register: success',
-            'message' => 'User successfully registered',
-            'user' => $user
         ], 201);
     }
 
@@ -260,14 +237,21 @@ class AuthController extends Controller
                     $user_query = $request->query('account');
                     $user = User::where('id', $user_query)->first();
                     if ($user) {
-                        return response()->json([
+                        $result = [
                             '_id' => $user->id,
-                            'avatar' => $user->accountAvatar ? $user->accountAvatar : '',
+                            'avatar' => $user->avatar ? $user->avatar : '',
                             'cart' => DB::table('cart')->where('account_id', $user->id)->get() ? DB::table('cart')->where('account_id', $user->id)->get() : [],
                             'email' => $user->accountEmail,
                             'name' => $user->accountName,
                             'order' => DB::table('order')->where('account_id', $user->id)->get() ? DB::table('order')->where('account_id', $user->id)->get() : [],
                             'phone' => $user->accountPhone,
+                        ];
+                        $infor =[
+                            "message" => "load account manage info: success",
+                            "result" => $result,
+                        ];
+                        return response()->json([
+                            "info" => $infor,
                         ]);
                     } else {
                         return response()->json([
@@ -303,20 +287,39 @@ class AuthController extends Controller
                     $user_query = $request->query('account');
                     $user = User::where('id', $user_query)->first();
                     if ($user) {
-                        $user->accountName = $request->accountName;
-                        $user->accountPhone = $request->accountPhone;
-                        $email = User::query()->where('accountEmail', $request->accountEmail)->first();
-                        if ($email) {
-                            return response()->json([
-                                'account' => 'edit account info: email is existed',
-                            ], 400);
-                        } else {
-                            $user->accountEmail = $request->accountEmail;
-                            $user->save();
-                            return response()->json([
-                                'account' => 'edit account info: success',
-                            ]);
+                        $update = [
+                             $request->email,
+                            $request->name,
+                            $request->phone,
+                        ];
+                        $result = [
+                            'accountEmail' => $update[0],
+                            'accountName' => $update[1],
+                            'accountPhone' => $update[2]
+                        ];
+
+                        foreach ($update as $key => $value) {
+                            if ($value == null) {
+                                unset($update[$key]);
+                            }else{
+                                foreach ($result as $key => $value) {
+                                    if ($value == null) {
+                                        unset($result[$key]);
+                                    }else{
+                                        $result[$key] = $value;
+
+                                    }
+                                }
+
+                            }
                         }
+                        DB::table('users')->where('id', $user_query)->update($result);
+                        DB::table('users')->where('id', $user_query)->update([
+                            'updated_at' => now(),
+                        ]);
+                        return response()->json([
+                            'account' => 'edit account info: success',
+                        ]);
                     } else {
                         return response()->json([
                             'account' => 'edit account info: account is not existed',
@@ -352,10 +355,10 @@ class AuthController extends Controller
                     $user_query = $request->query('account');
                     $user = User::where('id', $user_query)->first();
                     if ($user) {
-                        $old_password = $request->old_password;
-                        $new_password = $request->new_password;
+                        $old_password = $request->oldPassword;
+                        $new_password = $request->newPassword;
                         if (password_verify($old_password, $user->accountPassword)) {
-                            $user->accountPassword = bcrypt($new_password);
+                            $user->accountPassword = password_hash($new_password, PASSWORD_DEFAULT);
                             $user->save();
                             return response()->json([
                                 'account' => 'change password: success',
@@ -426,7 +429,6 @@ class AuthController extends Controller
             $redis->connect('127.0.0.1', 6379);
             $redis->set($email, $message, time() + 60 * 5);
             $redis->close();
-            print_r(strval($code));
             Mail::to($email)->send(new MyEmail($code));
             return response()->json([
                 'authentication' => 'forgot authentication password: success',
@@ -486,6 +488,7 @@ class AuthController extends Controller
             $redis->connect('127.0.0.1', 6379);
             $data = $redis->get($user_id);
             $redis->close();
+
             if ($data == null) {
                 return response()->json([
                     'protect' => 'miss',
@@ -505,7 +508,7 @@ class AuthController extends Controller
                                 'account_id' => $user->id,
                                 'name' => $request->storeName,
                                 'address' => $request->storeAddress,
-                                'phone' => $request->storePhone,
+                                'phone' => $request->storePhone ?? "https://www.demo.com",
                                 'email' => $request->storeEmail,
                                 'logo' => $request->storeLogo,
                                 'created_at' => now(),
@@ -513,7 +516,7 @@ class AuthController extends Controller
                             ]);
                             return response()->json([
                                 'account' => 'create store: success',
-                            ]);
+                            ], 201);
                         }
                     } else {
                         return response()->json([
@@ -557,9 +560,12 @@ class AuthController extends Controller
                             'email' => $store->email,
                             'logo' => $store->logo,
                         ];
+                        $result = [
+                            'message' => 'load store info: success',
+                            'result' => $resp,
+                        ];
                         return response()->json([
-                            'message' => 'load store manage info: success',
-                            'result' => $store,
+                            'info' => $result,
                         ]);
                     } else {
                         return response()->json([
@@ -608,7 +614,6 @@ class AuthController extends Controller
                             if ($value == null) {
                                 unset($update[$key]);
                             }else{
-
                                 foreach ($result as $key => $value) {
                                     if ($value == null) {
                                         unset($result[$key]);
@@ -641,55 +646,122 @@ class AuthController extends Controller
         }
     }
 
+     public function update_store_logo(Request $request){
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
 
-        public
-        function check_time($access_token, $refesh_token)
-        {
-            $token = Token::where('access_token', $access_token)->where('refresh_token', $refesh_token)->first();
-            if ($token) {
-                $time = $token->expires_in_access_token;
-                $time = strtotime($time);
-                $now = time();
-                if ($now > $time) {
-                    return false;
-                } else {
-                    return true;
-                }
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            $redis->close();
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
             } else {
-                return false;
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $store_query = $request->query('store');
+                    $store = DB::table('store')->where('id', $store_query)->first();
+                    if ($store) {
+                        $update = [
+                            $request->logo,
+                        ];
+                        $result = [
+                            'logo' => $update[0],
+                        ];
+                        foreach ($update as $key => $value) {
+                            if ($value == null) {
+                                unset($update[$key]);
+                            } else {
+
+                                foreach ($result as $key => $value) {
+                                    if ($value == null) {
+                                        unset($result[$key]);
+                                    } else {
+                                        $result[$key] = $value;
+
+                                    }
+                                }
+
+                            }
+                        }
+
+                        DB::table('store')->where('id', $store_query)->update(
+                            $result
+                        );
+                        DB::table('store')->where('id', $store_query)->update([
+                            'updated_at' => now(),
+                        ]);
+                        return response()->json([
+                            'info' => 'edit store logo: success',
+                        ]);
+                    } else {
+                        return response()->json([
+                            'info' => 'update store logo: store is not existed',
+                        ], 400);
+                    }
+                }
             }
         }
 
-        /**
-         * Get the token array structure.
-         *
-         * @param string $token
-         *
-         * @return \Illuminate\Http\JsonResponse
-         */
-        public
-        function changePassWord(Request $request)
-        {
-            $validator = Validator::make($request->all(), [
-                'old_password' => 'required|string|min:6',
-                'new_password' => 'required|string|confirmed|min:6',
-            ]);
+     }
 
-            if ($validator->fails()) {
-                return response()->json($validator->errors()->toJson(), 400);
+
+
+    public
+    function check_time($access_token, $refesh_token)
+    {
+        $token = Token::where('access_token', $access_token)->where('refresh_token', $refesh_token)->first();
+        if ($token) {
+            $time = $token->expires_in_access_token;
+            $time = strtotime($time);
+            $now = time();
+            if ($now > $time) {
+                return false;
+            } else {
+                return true;
             }
-            $userId = auth()->user()->id;
-
-            $user = User::where('id', $userId)->update(
-                ['password' => bcrypt($request->new_password)]
-            );
-
-            return response()->json([
-                'message' => 'User successfully changed password',
-                'user' => $user,
-            ], 201);
+        } else {
+            return false;
         }
     }
+
+    /**
+     * Get the token array structure.
+     *
+     * @param string $token
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public
+    function changePassWord(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'old_password' => 'required|string|min:6',
+            'new_password' => 'required|string|confirmed|min:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->toJson(), 400);
+        }
+        $userId = auth()->user()->id;
+
+        $user = User::where('id', $userId)->update(
+            ['password' => bcrypt($request->new_password)]
+        );
+
+        return response()->json([
+            'message' => 'User successfully changed password',
+            'user' => $user,
+        ], 201);
+    }
+}
 
 
 

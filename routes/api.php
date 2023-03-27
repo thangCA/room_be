@@ -15,8 +15,12 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::prefix('/')->group(
-    function ($router) {
+
+Route::group([
+    'middleware' => ['api', 'cors'],
+    'prefix' => '/'
+],
+    function ($router){
         Route::post('/authentication', [AuthController::class, 'login'])->name('authentication');
         Route::post('/registration', [AuthController::class, 'register'])->name('registration');
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -32,6 +36,7 @@ Route::prefix('/')->group(
         Route::post('/store/create', [AuthController::class, 'create_store']);
         Route::get('/store/manage/info/load', [AuthController::class, 'load_store']);
         Route::post('/store/manage/info/edit', [AuthController::class, 'update_store']);
+        Route::post('/store/manage/logo/update', [AuthController::class, 'update_store_logo']);
 
 
         // Route get connect with param message = checking
@@ -39,8 +44,12 @@ Route::prefix('/')->group(
         Route::get('/', function (Request $request) {
             $message = $request->query('message');
             if ($message == 'checking') {
+
+
+
                 return response()->json([
                     'connection' => 'success',
+                    'message' => 'Connection success'
                 ]);
             }
         });
