@@ -5,11 +5,13 @@ use App\Mail\MyEmail;
 use App\Mail\ThangDuc;
 use App\Models\store;
 use App\Models\Token;
+use DateTime;
 use Illuminate\Http\Request;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use mysql_xdevapi\Exception;
@@ -42,10 +44,10 @@ class AuthController extends Controller
 
     {
         $user = User::where('accountEmail', $request->accountEmail)->first();
-        if ($user == null) {
+        if ($user->id == null) {
             return response()->json([
-                'message' => 'handle authentication: wrong email or password',
-            ]);
+                'authentication' => "handle authentication: wrong email or password",
+            ], 401);
         }
         if (password_verify($request->accountPassword, $user->accountPassword)) {
             $store_id = DB::table('store')->where('account_id', $user->id)->first();
@@ -159,7 +161,7 @@ class AuthController extends Controller
             [
                 'accountName' => $request->accountName,
                 'accountEmail' => $request->accountEmail,
-                'accountPassword' => password_hash($request->accountPassword, PASSWORD_DEFAULT),
+                'accountPassword' => Hash::make($request->accountPassword),
                 'accountPhone' => $request->accountPhone,
             ]
         );
@@ -333,6 +335,8 @@ class AuthController extends Controller
 
     public function change_password(Request $request)
     {
+
+
         $access_token = Cookie::get('access_token');
         $user_id = Cookie::get('user_id');
 
@@ -355,10 +359,10 @@ class AuthController extends Controller
                     $user_query = $request->query('account');
                     $user = User::where('id', $user_query)->first();
                     if ($user) {
-                        $old_password = $request->oldPassword;
-                        $new_password = $request->newPassword;
-                        if (password_verify($old_password, $user->accountPassword)) {
-                            $user->accountPassword = password_hash($new_password, PASSWORD_DEFAULT);
+                        $old_password = $request->old_password;
+                        $new_password = $request->new_password;
+                        if (Hash::check($old_password, $user->accountPassword)) {
+                            $user->accountPassword = Hash::make($new_password);
                             $user->save();
                             return response()->json([
                                 'account' => 'change password: success',
@@ -457,7 +461,7 @@ class AuthController extends Controller
         } else {
             if ($data == $code) {
                 $user = User::query()->where('accountEmail', $email)->first();
-                $user->accountPassword = bcrypt($password);
+                $user->accountPassword = Hash::make($password);
                 $user->save();
                 $redis = new Redis();
                 $redis->connect('127.0.0.1', 6379);
@@ -711,6 +715,158 @@ class AuthController extends Controller
         }
 
      }
+
+     public function create_product(Request $request){
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            $redis->close();
+
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $store_query = $request->query('store');
+                    $store = DB::table('store')->where('id', $store_query)->first();
+                    if ($store) {
+                        $product_request=[
+                            $request->postTime,
+                            $request->productName,
+                            $request->productCategory,
+                            $request->productFile,
+                            $request->productOption,
+                            $request->productPrice,
+                            $request->productQuantity,
+                            $request->productDescription,
+                            $request->productAddress,
+                        ];
+                        $produc_save = [
+                            'store_id' => $store_query,
+                            'name' => $product_request[1],
+                            'price' => $product_request[5],
+                            'quantity' => $product_request[6],
+                            'description' => $product_request[7],
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+
+
+                        $product_id = DB::table('product')->insertGetId($produc_save);
+
+                        $category = $product_request[2];
+                        $category_chunks =array_chunk($category, 500);
+                        foreach ($category_chunks as $value_cate){
+                            foreach ($value_cate as $value){
+                                $category = DB::table('category')->where('name', $value['name'])->first();
+                                if ($category) {
+                                    DB::table('product_category')->insert([
+                                        'product_id' => $product_id,
+                                        'category_id' => $category->id,
+                                          'created_at' => now(),
+                                    ]);
+                                } else {
+                                    $cate_id = DB::table('category')->insertGetId([
+                                        'name' => $value['name'],
+                                          'created_at' => now(),
+                                    ]);
+
+                                    DB::table('product_category')->insert([
+                                        'product_id' => $product_id,
+                                        'category_id' => $cate_id,
+                                          'created_at' => now(),
+                                    ]);
+
+                                }
+                            }
+                        }
+                        $option = $product_request[4];
+                        $option_chunks =array_chunk($option, 500);
+                        foreach ($option_chunks as $value_option){
+                            foreach ($value_option as $value){
+                                $option = DB::table('product_option')->where('product_id', $product_id)->where('name', $value['name'])->first();
+                                if ($option) {
+                                    DB::table('product_option')->update([
+                                        'product_id' => $product_id,
+                                        'name' => $value['name'],
+                                        'updated_at' => now(),
+                                    ]);
+                                } else {
+                                    DB::table('product_option')->insert([
+                                        'product_id' => $product_id,
+                                        'name' => $value['name'],
+                                        'created_at' => now(),
+
+                                    ]);
+
+                                }
+                            }
+                        }
+
+                        $file = $product_request[3];
+                        $file_chunks =array_chunk($file, 500);
+                        foreach ($file_chunks as $value_file){
+                            foreach ($value_file as $value){
+                                DB::table('product_file')->insert([
+                                    'product_id' => $product_id,
+                                    'type' => $value['type'],
+                                    'url' => $value['url'],
+                                    'created_at' => now(),
+
+                                ]);
+                            }
+                        }
+
+                        $address = $product_request[8];
+                        $address_chunks =array_chunk($address, 500);
+                        foreach ($address_chunks as $value_addr){
+                            foreach ($value_addr as $value){
+                                $address = DB::table('product_location')->where('product_id', $product_id)->first();
+                                if ($address) {
+                                    DB::table('product_location')->insert([
+                                        'product_id' => $product_id,
+                                        'country' => $value['country'],
+                                        'city' => $value['city'],
+                                        'address' => $value['address'],
+                                        'update_at' => now(),
+                                    ]);
+                                } else {
+                                    DB::table('product_location')->insert([
+                                        'product_id' => $product_id,
+                                        'country' => $value['country'],
+                                        'city' => $value['city'],
+                                        'address' => $value['address'],
+                                        'created_at' => now(),
+                                    ]);
+
+                                }
+                            }
+                        }
+
+                        return response()->json([
+                            'info' => 'create product: success',
+                        ], 200);
+
+                    } else {
+                        return response()->json([
+                            'info' => 'create product: store is not existed',
+                        ], 400);
+                    }
+                }
+            }
+        }
+    }
+
 
 
 

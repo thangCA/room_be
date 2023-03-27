@@ -38,6 +38,10 @@ Route::group([
         Route::post('/store/manage/info/edit', [AuthController::class, 'update_store']);
         Route::post('/store/manage/logo/update', [AuthController::class, 'update_store_logo']);
 
+        //================================================================================================//
+
+        Route::post('/product/detail/post', [AuthController::class, 'create_product']);
+
 
         // Route get connect with param message = checking
         // url = http://localhost:5000/api/?message=checking
