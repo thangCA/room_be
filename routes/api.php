@@ -41,6 +41,7 @@ Route::group([
         //================================================================================================//
 
         Route::post('/product/detail/post', [AuthController::class, 'create_product']);
+        Route::get('/product/detail/load', [AuthController::class, 'load_product']);
 
 
         // Route get connect with param message = checking

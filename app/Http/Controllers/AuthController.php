@@ -867,6 +867,79 @@ class AuthController extends Controller
         }
     }
 
+    public function load_product(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $product_query = $request->query('product');
+                    $product = DB::table('product')->where('id', $product_query)->first();
+                    if ($product) {
+                        $product_category = DB::table('product_category')->where('product_id', $product_query)->get();
+                        $product_option = DB::table('product_option')->where('product_id', $product_query)->get();
+                        $product_file = DB::table('product_file')->where('product_id', $product_query)->get();
+                        $product_location = DB::table('product_location')->where('product_id', $product_query)->first();
+                        $product_category_array = [];
+                        $product_option_array = [];
+                        $product_file_array = [];
+                        foreach ($product_category as $value) {
+                            $category = DB::table('category')->where('id', $value->category_id)->first();
+                            array_push($product_category_array, $category);
+                        }
+                        foreach ($product_option as $value) {
+                            array_push($product_option_array, $value);
+                        }
+                        foreach ($product_file as $value) {
+                            array_push($product_file_array, $value);
+                        }
+                        $product_array = [
+                            'id' => $product->id,
+                            'name' => $product->name,
+                            'price' => $product->price,
+                            'quantity' => $product->quantity,
+                            'description' => $product->description,
+                            'category' => $product_category_array,
+                            'option' => $product_option_array,
+                            'file' => $product_file_array,
+                            'location' => $product_location,
+                        ];
+                        $rs = [
+                            'message' => 'load product: success',
+                            'detail' => $product_array,
+                        ];
+                        return response()->json([
+                            'product' => $rs,
+                        ], 200);
+                    } else {
+                        return response()->json([
+                            'info' => 'load product: product is not existed',
+                        ], 400);
+                    }
+
+                } else {
+                    return response()->json([
+                        'protect' => 'miss',
+                    ], 400);
+                }
+            }
+        }
+    }
+
 
 
 
