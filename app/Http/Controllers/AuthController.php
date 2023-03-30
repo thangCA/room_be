@@ -1158,6 +1158,48 @@ class AuthController extends Controller
         }
     }
 
+    public function search_product(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $search = $request->searchInput;
+                    $product = DB::table('product')->where('name', 'like', '%' . $search . '%')->get();
+                    $rs = [];
+                    foreach ($product as $item) {
+                        $r = [
+                            '_id' => $item->id,
+                            'name' => $item->name,
+                            'price' => $item->price,
+                            'description' => $item->description,
+                        ];
+                       array_push($rs,$r);
+                    }
+
+                    return response()->json([
+                        'info' => 'search product: success',
+                        'data' => $rs,
+                    ], 200);
+                }
+            }
+        }
+    }
+
 
 
 

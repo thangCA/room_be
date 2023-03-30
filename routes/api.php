@@ -46,6 +46,7 @@ Route::group([
         Route::post("/product/manage/detail/add", [AuthController::class, 'add_product_item']);
         Route::post("/product/manage/detail/delete", [AuthController::class, 'delete_product_item']);
         Route::post("/product/manage/delete", [AuthController::class, 'delete_product']);
+        Route::post("/product/search", [AuthController::class, 'search_product']);
 
 
 
