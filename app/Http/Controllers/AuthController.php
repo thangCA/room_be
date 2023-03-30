@@ -44,7 +44,7 @@ class AuthController extends Controller
 
     {
         $user = User::where('accountEmail', $request->accountEmail)->first();
-        if ($user->id == null) {
+        if ($user == null) {
             return response()->json([
                 'authentication' => "handle authentication: wrong email or password",
             ], 401);
@@ -740,122 +740,106 @@ class AuthController extends Controller
                     $store_query = $request->query('store');
                     $store = DB::table('store')->where('id', $store_query)->first();
                     if ($store) {
-                        $product_request=[
-                            $request->postTime,
-                            $request->productName,
-                            $request->productCategory,
-                            $request->productFile,
-                            $request->productOption,
-                            $request->productPrice,
-                            $request->productQuantity,
-                            $request->productDescription,
-                            $request->productAddress,
-                        ];
-                        $produc_save = [
-                            'store_id' => $store_query,
-                            'name' => $product_request[1],
-                            'price' => $product_request[5],
-                            'quantity' => $product_request[6],
-                            'description' => $product_request[7],
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
+                        //                        {
+//                          "postTime": "2023-3-30 - 9:48:51",
+//                          "productName": "Ao Khoac",
+//                          "productCategory": [ "Fashion" ],
+//                          "productFile": [
+//                            {
+//                                "type": "image",
+//                              "url": "https://firebasestorage.googleapis.com/v0/b/vshop-4a2d5.appspot.com/o/store%2F642237c8020331e197cf9091%2Fproduct%2Fdate%2F2023-3-30%20-%209%3A48%3A51%2FAo%20Khoac%2Ffile%2Fz4155763466675_d3ef575c83937478ef04a6bf72c8826b.jpg?alt=media&token=d1b309dc-9efb-4b5e-a4e3-865510d537f4"
+//                            }
+//                          ],
+//                          "productOption": [ "XX" ],
+//                          "productPrice": "20",
+//                          "productQuantity": "10",
+//                          "productDescription": "Ao dep",
+//                          "productAddress": [ "VIETNAM", "Ho Chi Minh", "Tan Binh" ]
+//                        }
 
+                         $product_request = [
+                            'productName' => $request->productName,
+                            'productCategory' => $request->productCategory,
+                            'productFile' => $request->productFile,
+                            'productOption' => $request->productOption,
+                            'productPrice' => $request->productPrice,
+                            'productQuantity' => $request->productQuantity,
+                            'productDescription' => $request->productDescription,
+                            'productAddress' => $request->productAddress,
 
-                        $product_id = DB::table('product')->insertGetId($produc_save);
+                         ];
 
-                        $category = $product_request[2];
-                        $category_chunks =array_chunk($category, 500);
-                        foreach ($category_chunks as $value_cate){
-                            foreach ($value_cate as $value){
-                                $category = DB::table('category')->where('name', $value['name'])->first();
-                                if ($category) {
-                                    DB::table('product_category')->insert([
-                                        'product_id' => $product_id,
-                                        'category_id' => $category->id,
-                                          'created_at' => now(),
-                                    ]);
-                                } else {
-                                    $cate_id = DB::table('category')->insertGetId([
-                                        'name' => $value['name'],
-                                          'created_at' => now(),
-                                    ]);
-
-                                    DB::table('product_category')->insert([
-                                        'product_id' => $product_id,
-                                        'category_id' => $cate_id,
-                                          'created_at' => now(),
-                                    ]);
-
-                                }
-                            }
-                        }
-                        $option = $product_request[4];
-                        $option_chunks =array_chunk($option, 500);
-                        foreach ($option_chunks as $value_option){
-                            foreach ($value_option as $value){
-                                $option = DB::table('product_option')->where('product_id', $product_id)->where('name', $value['name'])->first();
-                                if ($option) {
-                                    DB::table('product_option')->update([
-                                        'product_id' => $product_id,
-                                        'name' => $value['name'],
-                                        'updated_at' => now(),
-                                    ]);
-                                } else {
-                                    DB::table('product_option')->insert([
-                                        'product_id' => $product_id,
-                                        'name' => $value['name'],
-                                        'created_at' => now(),
-
-                                    ]);
-
-                                }
-                            }
-                        }
-
-                        $file = $product_request[3];
-                        $file_chunks =array_chunk($file, 500);
-                        foreach ($file_chunks as $value_file){
-                            foreach ($value_file as $value){
-                                DB::table('product_file')->insert([
-                                    'product_id' => $product_id,
+                         //save db product
+                        $product = DB::table('product')->insertGetId(
+                            [
+                                'store_id' => $store_query,
+                                'name' => $product_request['productName'],
+                                'price' => floatval($product_request['productPrice']),
+                                'quantity' => $product_request['productQuantity'],
+                                'description' => $product_request['productDescription'],
+                                'created_at' => now(),
+                            ]);
+                        //save db product_file
+                        foreach ($product_request['productFile'] as $key => $value) {
+                            DB::table('product_file')->insert(
+                                [
+                                    'product_id' => $product,
                                     'type' => $value['type'],
                                     'url' => $value['url'],
                                     'created_at' => now(),
-
                                 ]);
-                            }
                         }
 
-                        $address = $product_request[8];
-                        $address_chunks =array_chunk($address, 500);
-                        foreach ($address_chunks as $value_addr){
-                            foreach ($value_addr as $value){
-                                $address = DB::table('product_location')->where('product_id', $product_id)->first();
-                                if ($address) {
-                                    DB::table('product_location')->insert([
-                                        'product_id' => $product_id,
-                                        'country' => $value['country'],
-                                        'city' => $value['city'],
-                                        'address' => $value['address'],
-                                        'update_at' => now(),
-                                    ]);
-                                } else {
-                                    DB::table('product_location')->insert([
-                                        'product_id' => $product_id,
-                                        'country' => $value['country'],
-                                        'city' => $value['city'],
-                                        'address' => $value['address'],
+
+                        //save db category and product_category
+                        foreach ($product_request['productCategory'] as $key => $value) {
+                            $category = DB::table('category')->where('name', $value)->first();
+                            if ($category) {
+                                $category_id = $category->id;
+                            } else {
+                                $category_id = DB::table('category')->insertGetId(
+                                    [
+                                        'name' => $value,
                                         'created_at' => now(),
                                     ]);
-
-                                }
                             }
+                            DB::table('product_category')->insert(
+                                [
+                                    'product_id' => $product,
+                                    'category_id' => $category_id,
+                                    'created_at' => now(),
+                                ]);
                         }
 
+                        //save db product_option
+                        foreach ($product_request['productOption'] as $key => $value) {
+                            DB::table('product_option')->insert(
+                                [
+                                    'product_id' => $product,
+                                    'name' => $value,
+                                    'created_at' => now(),
+                                ]);
+                        }
+
+                        //save db product_address
+                        $country = $product_request['productAddress'][0];
+                        $city = $product_request['productAddress'][1];
+                        $district = $product_request['productAddress'][2];
+
+                        DB::table('product_location')->insert(
+                            [
+                                'product_id' => $product,
+                                'country' => $country,
+                                'city' => $city,
+                                'address' => $district,
+                                'created_at' => now(),
+                            ]);
                         return response()->json([
                             'info' => 'create product: success',
                         ], 200);
+
+
+
 
                     } else {
                         return response()->json([
@@ -890,6 +874,7 @@ class AuthController extends Controller
                     $product_query = $request->query('product');
                     $product = DB::table('product')->where('id', $product_query)->first();
                     if ($product) {
+
                         $product_category = DB::table('product_category')->where('product_id', $product_query)->get();
                         $product_option = DB::table('product_option')->where('product_id', $product_query)->get();
                         $product_file = DB::table('product_file')->where('product_id', $product_query)->get();
@@ -939,6 +924,115 @@ class AuthController extends Controller
             }
         }
     }
+
+    public function update_product(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $product_request = $request->all();
+                    $product = DB::table('product')->where('id', $product_request[0])->first();
+                    if ($product) {
+                        $product_id = $product_request[0];
+                        $product_name = $product_request[1];
+                        $product_price = $product_request[2];
+                        $product_quantity = $product_request[4];
+                        $product_description = $product_request[5];
+                        $product_category = $product_request[6];
+                        $product_option = $product_request[7];
+                        $product_file = $product_request[3];
+                        DB::table('product')->where('id', $product_id)->update([
+                            'name' => $product_name,
+                            'price' => $product_price,
+                            'quantity' => $product_quantity,
+                            'description' => $product_description,
+                            'updated_at' => now(),
+                        ]);
+                        DB::table('product_category')->where('product_id', $product_id)->delete();
+                        DB::table('product_option')->where('product_id', $product_id)->delete();
+                        DB::table('product_file')->where('product_id', $product_id)->delete();
+                        $category_chunks = array_chunk($product_category, 500);
+                        foreach ($category_chunks as $value_category) {
+                            if ($value_category.length > 3){
+                                return response()->json([
+                                    'product' => 'edit product detail: category length over 3 items',
+                                ], 400);
+                            }
+                            foreach ($value_category as $value) {
+                                $cate = DB::table('category')->where('id', $value)->first();
+                                if ($cate) {
+                                    DB::table('product_category')->insert([
+                                        'product_id' => $product_id,
+                                        'category_id' => $value,
+                                        'created_at' => now(),
+                                    ]);
+                                }
+                                else{
+                                    $id_cate = DB::table('category')->insert([
+                                        'name' => $value,
+                                        'created_at' => now(),
+                                    ]);
+
+                                    DB::table('product_category')->insert([
+                                        'product_id' => $product_id,
+                                        'category_id' => $id_cate,
+                                        'created_at' => now(),
+                                    ]);
+
+                                }
+
+                            }
+                        }
+                        $option_chunks = array_chunk($product_option, 500);
+                        foreach ($option_chunks as $value_option) {
+                            foreach ($value_option as $value) {
+                                DB::table('product_option')->insert([
+                                    'product_id' => $product_id,
+                                    'name' => $value['name'],
+                                    'value' => $value['value'],
+                                    'created_at' => now(),
+                                ]);
+                            }
+                        }
+                        $file_chunks = array_chunk($product_file, 500);
+                        foreach ($file_chunks as $value_file) {
+                            foreach ($value_file as $value) {
+                                DB::table('product_file')->insert([
+                                    'product_id' => $product_id,
+                                    'name' => $value['name'],
+                                    'url' => $value['url'],
+                                    'created_at' => now(),
+                                ]);
+                            }
+                        }
+
+                    }
+                } else {
+                    return response()->json([
+                        'protect' => 'miss',
+                    ], 400);
+
+                }
+            }
+        }
+    }
+
+
 
 
 
