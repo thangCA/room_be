@@ -43,6 +43,7 @@ Route::group([
         Route::post('/product/detail/post', [AuthController::class, 'create_product']);
         Route::get('/product/detail/load', [AuthController::class, 'load_product']);
         Route::post('/product/manage/detail/edit', [AuthController::class, 'update_product']); //
+        Route:post("/product/manage/detail/add", [AuthController::class, 'add_product_item']);
 
 
         // Route get connect with param message = checking

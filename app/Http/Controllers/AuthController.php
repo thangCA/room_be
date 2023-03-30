@@ -19,6 +19,7 @@ use Redis;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Validator;
 use Illuminate\Support\Facades\Cookie;
+use App\Common\common;
 
 
 
@@ -555,6 +556,11 @@ class AuthController extends Controller
                 if ($data['access_token'] == $access_token) {
                     $store_query = $request->query('store');
                     $store = DB::table('store')->where('id', $store_query)->first();
+                    $product = DB::table('product')->where('store_id', $store_query)->get();
+                    $product_list = [];
+                    foreach ($product as $item) {
+                        array_push($product_list, $item->id);
+                    }
                     if ($store) {
                         $resp = [
                             '_id' => $store->id,
@@ -563,9 +569,10 @@ class AuthController extends Controller
                             'phone' => $store->phone ? $store->phone : '',
                             'email' => $store->email,
                             'logo' => $store->logo,
+                            'product' => $product_list,
                         ];
                         $result = [
-                            'message' => 'load store info: success',
+                            'message' => 'load store manage info: success',
                             'result' => $resp,
                         ];
                         return response()->json([
@@ -1041,6 +1048,49 @@ class AuthController extends Controller
             }
         }
     }
+
+    public function  add_product_item(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $product = $request->query('product');
+                    $field = $request->query('field');
+
+                    $product = DB::table('product')->where('id', $product)->first();
+                    $productData = $request->productData;
+                    if($product){
+                        $call = common::call_function_auto($field,$productData,$product->id);
+                        if($call){
+                            return response()->json([
+                                'info' => 'add product item: success',
+                            ], 200);
+                        }else{
+                            return response()->json([
+                                'info' => 'add product item: fail',
+                            ], 400);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 
 
 
