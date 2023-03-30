@@ -879,6 +879,9 @@ class AuthController extends Controller
                         $product_option = DB::table('product_option')->where('product_id', $product_query)->get();
                         $product_file = DB::table('product_file')->where('product_id', $product_query)->get();
                         $product_location = DB::table('product_location')->where('product_id', $product_query)->first();
+                        $comment = DB::table('product_comment')->where('product_id', $product_query)->get();
+                        $store = DB::table('store')->where('id', $product->store_id)->first();
+                        $comment_array = [];
                         $product_category_array = [];
                         $product_option_array = [];
                         $product_file_array = [];
@@ -892,6 +895,40 @@ class AuthController extends Controller
                         foreach ($product_file as $value) {
                             array_push($product_file_array, $value);
                         }
+                        if ($comment -> isEmpty()){
+                            $comment_array = [];
+                        }else{
+                            foreach ($comment as $value) {
+                                $user = DB::table('user')->where('id', $value->user_id)->first();
+                                if($user == $store->user_id){
+                                    $seller = true;
+                                }else{
+                                    $seller = false;
+                                }
+                                $comment_array[] = [
+                                    'account'=> [
+                                        '_id' => $user->id,
+                                        'name' => $user->name,
+                                        'avatar' => $user->avatar,
+                                    ],
+                                    'comment'=>[
+                                        '_id' => $user->id,
+                                        'seller' =>$seller,
+                                        'content' => $value->content,
+
+                                    ]
+                                ];
+                            }
+
+                        }
+                        $store_resp = [
+                            '_id' => $product->store_id,
+                            'name' => $store->name,
+                            'email' => $store->email,
+                            'phone' => $store->phone,
+                        ];
+
+
                         $product_array = [
                             'id' => $product->id,
                             'name' => $product->name,
@@ -906,6 +943,8 @@ class AuthController extends Controller
                         $rs = [
                             'message' => 'load product: success',
                             'detail' => $product_array,
+                            'comment' => $comment_array,
+                            'store' => $store_resp,
                         ];
                         return response()->json([
                             'product' => $rs,
