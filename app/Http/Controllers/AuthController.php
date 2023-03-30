@@ -1200,6 +1200,79 @@ class AuthController extends Controller
         }
     }
 
+    public function load_list_category (Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs =[];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $category_name = $request->query('category');
+                    $category = DB::table('category')->where('name', $category_name)->first();
+                    $product_cate_id = DB::table('product_category')->where('category_id', $category->id)->get();
+                    foreach ($product_cate_id as $item) {
+                        $product = DB::table('product')->where('id', $item->product_id)->first();
+                        $file = DB::table('product_file')->where('product_id', $product->id)->get();
+                        $location = DB::table('product_location')->where('id', $product->id)->first();
+                        $rs_file =[];
+                        if($file){
+                            foreach ($file as $item) {
+                                $r = [
+                                    'file_id' => $item->id,
+                                    'file_name' => $item->file_name,
+                                    'file_url' => $item->file_url,
+                                ];
+                                array_push($rs_file,$r);
+                            }
+                        }else{
+                            $rs_file = null;
+                        }
+                        if ($location){
+                            $addr = [
+                                'country' => $location->country,
+                                'city' => $location->city,
+                                'address' => $location->address,
+                            ];
+                        }else{
+                            $addr = null;
+                        }
+                        $r = [
+                            '_id' => $product->id,
+                            'name' => $product->name,
+                            'price' => $product->price,
+                            'description' => $product->description,
+                            'file' => $rs_file,
+                            'location' => $addr,
+                        ];
+                        array_push($rs,$r);
+                    }
+                    $product = [
+                        'message' => "success",
+                        "result" => $rs,
+                    ];
+
+                    return response()->json([
+                        'product' => $product,
+                    ], 200);
+                }
+            }
+        }
+    }
+
 
 
 
