@@ -1091,6 +1091,73 @@ class AuthController extends Controller
         }
     }
 
+    public function  delete_product_item(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $product = $request->query('product');
+                    $field = $request->query('field');
+                    $where = $request->query('where');
+                    delete_function_auto($field,intval($where),$product);
+                    return response()->json([
+                        'info' => 'delete product item: success',
+                    ], 200);
+                }
+            }
+        }
+    }
+
+    public function delete_product (Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $product = $request->query('product');
+                    $store = $request->query('store');
+
+                    $product = DB::table('product')->where('id', $product)->where('store_id', $store)->first();
+                    if($product){
+                        DB::table('product_category')->where('product_id', $product->id)->delete();
+                        DB::table('product_option')->where('product_id', $product->id)->delete();
+                        DB::table('product_file')->where('product_id', $product->id)->delete();
+                        DB::table('product')->where('id', $product->id)->delete();
+                    }
+                }
+            }
+        }
+    }
+
 
 
 

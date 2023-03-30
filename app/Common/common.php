@@ -83,7 +83,17 @@ class common
         return true;
     }
 
+    public function delete_function_auto($function_name, $name, $product_id){
+        if ($function_name == 'category'){
+            $category = DB::table('product_category')->where('product_id', $product_id);
+            DB::table('product_category')->where('product_id', $product_id)->where('category_id', $category[$name]->id)->delete();
+        }
+        elseif ($function_name == 'option'){
+            $op = DB::table('product_options')->where('product_id', $product_id);
+            DB::table('product_options')->where('product_id', $product_id)->where('name', $op[$name]->name)->delete();
+        }
 
+    }
 
     public function check_phone_existed($phone) {
         $user = User::where('accountPhone', $phone)->first();
