@@ -946,6 +946,11 @@ class AuthController extends Controller
                 $data = json_decode($data, true);
                 if ($data['access_token'] == $access_token) {
                     $product_request = $request->all();
+                    if(count($product_request['prodct_category']) >3 ){
+                        return response()->json([
+                            'info' => 'update product: category is not existed',
+                        ], 400);
+                    }
                     $product = DB::table('product')->where('id', $product_request['id'])->first();
                     if ($product) {
                         $product_category = DB::table('product_category')->where('product_id', $product_request['id'])->get();
