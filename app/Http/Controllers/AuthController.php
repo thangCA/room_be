@@ -946,81 +946,47 @@ class AuthController extends Controller
                 $data = json_decode($data, true);
                 if ($data['access_token'] == $access_token) {
                     $product_request = $request->all();
-                    $product = DB::table('product')->where('id', $product_request[0])->first();
+                    $product = DB::table('product')->where('id', $product_request['id'])->first();
                     if ($product) {
-                        $product_id = $product_request[0];
-                        $product_name = $product_request[1];
-                        $product_price = $product_request[2];
-                        $product_quantity = $product_request[4];
-                        $product_description = $product_request[5];
-                        $product_category = $product_request[6];
-                        $product_option = $product_request[7];
-                        $product_file = $product_request[3];
-                        DB::table('product')->where('id', $product_id)->update([
-                            'name' => $product_name,
-                            'price' => $product_price,
-                            'quantity' => $product_quantity,
-                            'description' => $product_description,
-                            'updated_at' => now(),
-                        ]);
-                        DB::table('product_category')->where('product_id', $product_id)->delete();
-                        DB::table('product_option')->where('product_id', $product_id)->delete();
-                        DB::table('product_file')->where('product_id', $product_id)->delete();
-                        $category_chunks = array_chunk($product_category, 500);
-                        foreach ($category_chunks as $value_category) {
-                            if ($value_category.length > 3){
-                                return response()->json([
-                                    'product' => 'edit product detail: category length over 3 items',
-                                ], 400);
-                            }
-                            foreach ($value_category as $value) {
-                                $cate = DB::table('category')->where('id', $value)->first();
-                                if ($cate) {
-                                    DB::table('product_category')->insert([
-                                        'product_id' => $product_id,
-                                        'category_id' => $value,
-                                        'created_at' => now(),
-                                    ]);
-                                }
-                                else{
-                                    $id_cate = DB::table('category')->insert([
-                                        'name' => $value,
-                                        'created_at' => now(),
-                                    ]);
-
-                                    DB::table('product_category')->insert([
-                                        'product_id' => $product_id,
-                                        'category_id' => $id_cate,
-                                        'created_at' => now(),
-                                    ]);
-
-                                }
-
-                            }
+                        $product_category = DB::table('product_category')->where('product_id', $product_request['id'])->get();
+                        $product_option = DB::table('product_option')->where('product_id', $product_request['id'])->get();
+                        $product_file = DB::table('product_file')->where('product_id', $product_request['id'])->get();
+                        $product_location = DB::table('product_location')->where('product_id', $product_request['id'])->first();
+                        $product_category_array = [];
+                        $product_option_array = [];
+                        $product_file_array = [];
+                        foreach ($product_category as $value) {
+                            $category = DB::table('category')->where('id', $value->category_id)->first();
+                            array_push($product_category_array, $category);
                         }
-                        $option_chunks = array_chunk($product_option, 500);
-                        foreach ($option_chunks as $value_option) {
-                            foreach ($value_option as $value) {
-                                DB::table('product_option')->insert([
-                                    'product_id' => $product_id,
-                                    'name' => $value['name'],
-                                    'value' => $value['value'],
-                                    'created_at' => now(),
-                                ]);
-                            }
+                        foreach ($product_option as $value) {
+                            array_push($product_option_array, $value);
                         }
-                        $file_chunks = array_chunk($product_file, 500);
-                        foreach ($file_chunks as $value_file) {
-                            foreach ($value_file as $value) {
-                                DB::table('product_file')->insert([
-                                    'product_id' => $product_id,
-                                    'name' => $value['name'],
-                                    'url' => $value['url'],
-                                    'created_at' => now(),
-                                ]);
-                            }
+                        foreach ($product_file as $value) {
+                            array_push($product_file_array, $value);
                         }
-
+                        $product_array = [
+                            'id' => $product->id,
+                            'name' => $product->name,
+                            'price' => $product->price,
+                            'quantity' => $product->quantity,
+                            'description' => $product->description,
+                            'category' => $product_category_array,
+                            'option' => $product_option_array,
+                            'file' => $product_file_array,
+                            'location' => $product_location,
+                        ];
+                        $rs = [
+                            'message' => 'load product: success',
+                            'detail' => $product_array,
+                        ];
+                        return response()->json([
+                            'product' => $rs,
+                        ], 200);
+                    } else {
+                        return response()->json([
+                            'info' => 'load product: product is not existed',
+                        ], 400);
                     }
                 } else {
                     return response()->json([
