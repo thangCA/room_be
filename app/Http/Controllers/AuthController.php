@@ -1345,6 +1345,63 @@ class AuthController extends Controller
         }
     }
 
+    public function comment_product(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs = [];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $account_id = $request->query('account');
+                    $product_id = $request->query('product');
+
+                    if ($account_id == null or $product_id == null) {
+                        return response()->json([
+                            'product' => 'post product comment: account is not existed',
+                        ], 400);
+                    } else if ($account_id == $user_id) {
+                        $comment = $request->comment;
+                        $product = DB::table('product')->where('id', $product_id)->first();
+                        if ($product == null) {
+                            return response()->json([
+                                'product' => 'post product comment: product is not existed',
+                            ], 400);
+                        }
+                        DB::table('comment')->insert([
+                            'account_id' => $account_id,
+                            'product_id' => $product_id,
+                            'comment' => $comment,
+                        ]);
+
+                        return response()->json([
+                            "product" => "post product comment: success",
+                        ], 200);
+
+                    } else {
+                        return response()->json([
+                            'protect' => 'miss',
+                        ], 400);
+                    }
+
+                }
+            }
+        }
+    }
+
 
 
 
