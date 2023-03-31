@@ -1273,6 +1273,77 @@ class AuthController extends Controller
         }
     }
 
+    public function load_name_product(Request $request){
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs =[];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $product_name = $request->productName;
+                    $product = DB::table('product')->where('name', $product_name)->first();
+                    $file = DB::table('product_file')->where('product_id', $product->id)->get();
+                    $location = DB::table('product_location')->where('id', $product->id)->first();
+                    $rs_file =[];
+                    if($file){
+                        foreach ($file as $item) {
+                            $r = [
+                                'file_id' => $item->id,
+                                'file_name' => $item->file_name,
+                                'file_url' => $item->file_url,
+                            ];
+                            array_push($rs_file,$r);
+                        }
+                        }else{
+                        $rs_file = null;
+                    }
+                    if ($location){
+                        $addr = [
+                            'country' => $location->country,
+                            'city' => $location->city,
+                            'address' => $location->address,
+                        ];
+                    }else{
+                        $addr = null;
+                    }
+
+                    $rs_product = [
+                        '_id' => $product->id,
+                        'name' => $product->name,
+                        'price' => $product->price,
+                        'description' => $product->description,
+                        'file' => $rs_file,
+                        'address' => $addr,
+                        'quantity' => $product->quantity,
+                        'discount' => $product->discount,
+                    ];
+
+                    $rs = [
+                        "message" => "success",
+                        "result" => $rs_product,
+                    ];
+
+                    return response()->json([
+                        'product' => $rs,
+                    ], 200);
+
+                }
+            }
+        }
+    }
 
 
 
