@@ -45,13 +45,14 @@ Route::group([
         Route::post('/product/manage/detail/edit', [AuthController::class, 'update_product']); //
         Route::post("/product/manage/detail/add", [AuthController::class, 'add_product_item']);
         Route::post("/product/manage/detail/delete", [AuthController::class, 'delete_product_item']);
-        Route::post("/product/manage/delete", [AuthController::class, 'delete_product']);
+        Route::get("/product/manage/delete", [AuthController::class, 'delete_product']);
         Route::post("/product/search", [AuthController::class, 'search_product']);
         Route::get("/product/list/category/load", [AuthController::class, 'load_list_category']);
         Route::get("/product/list/name/load", [AuthController::class, 'load_name_product']);
         Route::get("/product/comment/post", [AuthController::class, 'comment_product']);
         Route::get("/selling/manage/product/list/load", [AuthController::class, 'load_store_product']);
         Route::get("/product/list/new", [AuthController::class, 'load_product_at_month']);
+        Route::get("/cart/item/load", [AuthController::class, 'load_cart']);
 
 
 

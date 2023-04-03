@@ -41,6 +41,92 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
+    public function call_function_auto ($function_name, $name, $product_id) {
+
+        if ($function_name == 'category') {
+
+            foreach ($name as $key => $value) {
+                $category = DB::table('category')->where('name', $value)->first();
+                if (!$category) {
+                    $cate = DB::table('category')->insert([
+                        'name' => $value,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+
+                    DB::table('product_category')->insert([
+                        'product_id' => $product_id,
+                        'category_id' => $cate,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }else{
+                    $cate_product = DB::table('product_category')->where('product_id', $product_id)->where('category_id', $category->id)->first();
+                    if (!$cate_product) {
+                        DB::table('product_category')->insert([
+                            'product_id' => $product_id,
+                            'category_id' => $category->id,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    }
+                }
+            }
+        }
+        elseif ( $function_name == 'option'){
+            foreach ($name as $key => $value){
+                $op_product = DB::table('product_option')->where('product_id', $product_id)->where('name', $value)->first();
+                if (!$op_product) {
+                    DB::table('product_option')->insert([
+                        'product_id' => $product_id,
+                        'name' => $value,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+        }
+        elseif ( $function_name == 'location'){
+            $lo_product = DB::table('product_locations')->where('product_id', $product_id)->first();
+            if (!$lo_product) {
+                DB::table('product_locations')->update([
+                    'product_id' => $name['product_id'],
+                    'country' => $name[0],
+                    'city' => $name[1],
+                    'address' => $name[2],
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+        }
+        elseif($function_name == 'file'){
+            $fi_product = DB::table('product_files')->where('product_id', $product_id)->first();
+            foreach ($name as $key => $value){
+                if (!$fi_product) {
+                    DB::table('product_files')->insert([
+                        'product_id' => $name['product_id'],
+                        'type' => $value['type'],
+                        'url' => $value['url'],
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+        }
+
+        return true;
+    }
+    public function delete_function_auto($function_name, $name, $product_id){
+        if ($function_name == 'category'){
+            $category = DB::table('product_category')->where('product_id', $product_id);
+            DB::table('product_category')->where('product_id', $product_id)->where('category_id', $category[$name]->id)->delete();
+        }
+        elseif ($function_name == 'option'){
+            $op = DB::table('product_options')->where('product_id', $product_id);
+            DB::table('product_options')->where('product_id', $product_id)->where('name', $op[$name]->name)->delete();
+        }
+
+    }
     public function login(Request $request)
 
     {
@@ -634,11 +720,11 @@ class AuthController extends Controller
                             if ($value == null) {
                                 unset($update[$key]);
                             }else{
-                                foreach ($result as $key => $value) {
+                                foreach ($result as $keys => $values) {
                                     if ($value == null) {
-                                        unset($result[$key]);
+                                        unset($result[$keys]);
                                     }else{
-                                        $result[$key] = $value;
+                                        $result[$keys] = $values;
 
                                     }
                                 }
@@ -897,19 +983,27 @@ class AuthController extends Controller
                         $product_location = DB::table('product_location')->where('product_id', $product_query)->first();
                         $comment = DB::table('product_comment')->where('product_id', $product_query)->get();
                         $store = DB::table('store')->where('id', $product->store_id)->first();
+                        $product_from_store = DB::table('product')->where('store_id', $product->store_id)->get();
                         $comment_array = [];
                         $product_category_array = [];
                         $product_option_array = [];
-                        $product_file_array = [];
                         foreach ($product_category as $value) {
                             $category = DB::table('category')->where('id', $value->category_id)->first();
-                            array_push($product_category_array, $category);
+                            array_push($product_category_array, $category->name);
                         }
                         foreach ($product_option as $value) {
-                            array_push($product_option_array, $value);
+                           $product_option_array = [
+                                $value->name,
+                            ];
                         }
-                        foreach ($product_file as $value) {
-                            array_push($product_file_array, $value);
+                        if ($product_file){
+                            foreach ($product_file as $value) {
+                                $product_file_array[] = [
+                                    'type' => $value->type,
+                                    'url' => url($value->url),
+                                    '_id' => $value->id,
+                                ];
+                            }
                         }
                         if ($comment -> isEmpty()){
                             $comment_array = [];
@@ -942,22 +1036,36 @@ class AuthController extends Controller
                             'name' => $store->name,
                             'email' => $store->email,
                             'phone' => $store->phone,
+                            'logo' => $store->logo,
+                            'address' => $store->address,
+                        ];
+                        foreach ($product_from_store as $value) {
+                            $store_resp['product'] = [
+                                $value->id,
+                            ];
+                        }
+
+                        $product_location = [
+                           $product_location->country,
+                            $product_location->city,
+                           $product_location->address,
                         ];
 
-
                         $product_array = [
-                            'id' => $product->id,
+                            '_id' => $product->id,
+                            'time' => $product->created_at,
                             'name' => $product->name,
-                            'price' => $product->price,
+                            'price' => intval($product->price),
                             'quantity' => $product->quantity,
                             'description' => $product->description,
                             'category' => $product_category_array,
                             'option' => $product_option_array,
+                            'discount' => $product->discount ? $product->discount : 0,
                             'file' => $product_file_array,
-                            'location' => $product_location,
+                            'address' => $product_location,
                         ];
                         $rs = [
-                            'message' => 'load product: success',
+                            'message' => 'load product detail: success',
                             'detail' => $product_array,
                             'comment' => $comment_array,
                             'store' => $store_resp,
@@ -1001,51 +1109,52 @@ class AuthController extends Controller
                 $data = json_decode($data, true);
                 if ($data['access_token'] == $access_token) {
                     $product_request = $request->all();
-                    if(count($product_request['prodct_category']) >3 ){
+                    $product_id = $request->query('product');
+                    if(count($product_request['category']) >3 ){
                         return response()->json([
                             'info' => 'update product: category is not existed',
                         ], 400);
                     }
-                    $product = DB::table('product')->where('id', $product_request['id'])->first();
+                    $product = DB::table('product')->where('id', $product_id)->first();
                     if ($product) {
-                        $product_category = DB::table('product_category')->where('product_id', $product_request['id'])->get();
-                        $product_option = DB::table('product_option')->where('product_id', $product_request['id'])->get();
-                        $product_file = DB::table('product_file')->where('product_id', $product_request['id'])->get();
-                        $product_location = DB::table('product_location')->where('product_id', $product_request['id'])->first();
-                        $product_category_array = [];
-                        $product_option_array = [];
-                        $product_file_array = [];
-                        foreach ($product_category as $value) {
-                            $category = DB::table('category')->where('id', $value->category_id)->first();
-                            array_push($product_category_array, $category);
+                        foreach ($product_request['category'] as $value) {
+                            $category = DB::table('category')->where('name', $value)->first();
+                            if ($category == null) {
+                                $cate_id = DB::table('category')->insertGetId(
+                                    ['name' => $value]
+                                );
+
+                                DB::table('product_category')->insert(
+                                    ['product_id' => $product_id, 'category_id' => $cate_id]
+                                );
+                            } else {
+                                $cate_id = $category->id;
+                                DB::table('product_category')->insert(
+                                    ['product_id' => $product_id, 'category_id' => $cate_id]
+                                );
+                            }
                         }
-                        foreach ($product_option as $value) {
-                            array_push($product_option_array, $value);
+
+                        foreach ($product_request['file'] as $k_o => $v_o) {
+                            if ($k_o == '_id') {
+                                continue;
+                            } else {
+                                $file = DB::table('product_file')->where('product_id', $product_id)->first();
+                                if ($file == null) {
+                                    DB::table('product_option')->update(
+                                        ['product_id' => $product_id, 'type' => $v_o['type'], 'url' => $v_o['url']]);
+                                } else {
+                                    DB::table('product_file')->where('product_id', $product_id)->insert(
+                                        ['product_id' => $product_id, 'type' => $v_o['type'], 'url' => $v_o['url']]);
+                                }
+                            }
                         }
-                        foreach ($product_file as $value) {
-                            array_push($product_file_array, $value);
-                        }
-                        $product_array = [
-                            'id' => $product->id,
-                            'name' => $product->name,
-                            'price' => $product->price,
-                            'quantity' => $product->quantity,
-                            'description' => $product->description,
-                            'category' => $product_category_array,
-                            'option' => $product_option_array,
-                            'file' => $product_file_array,
-                            'location' => $product_location,
-                        ];
-                        $rs = [
-                            'message' => 'load product: success',
-                            'detail' => $product_array,
-                        ];
                         return response()->json([
-                            'product' => $rs,
+                            'info' => 'update product: success',
                         ], 200);
                     } else {
                         return response()->json([
-                            'info' => 'load product: product is not existed',
+                            'info' => 'update product: product is not existed',
                         ], 400);
                     }
                 } else {
@@ -1084,7 +1193,7 @@ class AuthController extends Controller
                     $product = DB::table('product')->where('id', $product)->first();
                     $productData = $request->productData;
                     if($product){
-                        $call = common::call_function_auto($field,$productData,$product->id);
+                        $call = $this->call_function_auto($field, $productData, $product->id);
                         if($call){
                             return response()->json([
                                 'info' => 'add product item: success',
@@ -1123,7 +1232,7 @@ class AuthController extends Controller
                     $product = $request->query('product');
                     $field = $request->query('field');
                     $where = $request->query('where');
-                    delete_function_auto($field,intval($where),$product);
+                    $this->delete_function_auto($field, intval($where), $product);
                     return response()->json([
                         'info' => 'delete product item: success',
                     ], 200);
@@ -1157,10 +1266,32 @@ class AuthController extends Controller
 
                     $product = DB::table('product')->where('id', $product)->where('store_id', $store)->first();
                     if($product){
-                        DB::table('product_category')->where('product_id', $product->id)->delete();
-                        DB::table('product_option')->where('product_id', $product->id)->delete();
-                        DB::table('product_file')->where('product_id', $product->id)->delete();
+                        $product_category = DB::table('product_category')->where('product_id', $product->id)->get();
+                        $product_option = DB::table('product_option')->where('product_id', $product->id)->get();
+                        $product_file = DB::table('product_file')->where('product_id', $product->id)->get();
+                        $product_location = DB::table('product_location')->where('product_id', $product->id)->first();
+                        if($product_category){
+                            foreach ($product_category as $value){
+                                DB::table('product_category')->where('id', $value->id)->delete();
+                            }
+                        }
+                        if($product_option){
+                            foreach ($product_option as $value){
+                                DB::table('product_option')->where('id', $value->id)->delete();
+                            }
+                        }
+                        if($product_file){
+                            foreach ($product_file as $value){
+                                DB::table('product_file')->where('id', $value->id)->delete();
+                            }
+                        }
+                        if($product_location){
+                            DB::table('product_location')->where('id', $product_location->id)->delete();
+                        }
                         DB::table('product')->where('id', $product->id)->delete();
+                        return response()->json([
+                            'info' => 'delete product: success',
+                        ], 200);
                     }
                 }
             }
@@ -1236,14 +1367,14 @@ class AuthController extends Controller
                     foreach ($product_cate_id as $item) {
                         $product = DB::table('product')->where('id', $item->product_id)->first();
                         $file = DB::table('product_file')->where('product_id', $product->id)->get();
-                        $location = DB::table('product_location')->where('id', $product->id)->first();
+                        $location = DB::table('product_location')->where('product_id', $product->id)->first();
                         $rs_file =[];
                         if($file){
-                            foreach ($file as $item) {
+                            foreach ($file as $cate_item) {
                                 $r = [
-                                    'file_id' => $item->id,
-                                    'file_name' => $item->file_name,
-                                    'file_url' => $item->file_url,
+                                    '_id' => $cate_item->id,
+                                    'type' => $cate_item->type,
+                                    'url' => $cate_item->url,
                                 ];
                                 array_push($rs_file,$r);
                             }
@@ -1261,11 +1392,13 @@ class AuthController extends Controller
                         }
                         $r = [
                             '_id' => $product->id,
+                            'time' => $product->created_at,
                             'name' => $product->name,
-                            'price' => $product->price,
+                            'price' => intval($product->price),
+                            'quantity' => intval($product->quantity),
                             'description' => $product->description,
                             'file' => $rs_file,
-                            'location' => $addr,
+                            'address' => $addr,
                         ];
                         array_push($rs,$r);
                     }
@@ -1436,7 +1569,7 @@ class AuthController extends Controller
                     $store_ = DB::table('store')->where('id', $store)->first();
                     if ($store_ == null) {
                         return response()->json([
-                            "product"=> "load selling manage product list: store is not existed"
+                            "message"=> "load selling manage product list: store is not existed"
                         ], 400);
                     }
                     $product = DB::table('product')->where('store_id', $store)->get();
@@ -1447,21 +1580,22 @@ class AuthController extends Controller
 
                     if($product){
                         foreach ($product as $item){
-                            print_r($item->name);
                             $file = DB::table('product_file')->where('product_id', $item->id)->get();
-                            $location = DB::table('product_location')->where('id', $item->id)->first();
+                            $location = DB::table('product_location')->where('product_id', $item->id)->first();
                             $catefory_product = DB::table('product_category')->where('product_id', $item->id)->get();
                             $order = DB::table('order')->where('product_id', $item->id)->get();
                             $conment = DB::table('product_comment')->where('product_id', $item->id)->get();
+                            $option = DB::table('product_option')->where('product_id', $item->id)->get();
                             $order_lo = [];
                             $rs_file =[];
                             $addr = [];
                             $rs_conment = [];
                             $rs_catefory = [];
+                            $rs_option = [];
                             if($file){
                                 foreach ($file as $fi) {
                                     $r = [
-                                        'id' => $fi->id,
+                                        '_id' => $fi->id,
                                         'type' => $fi->type,
                                         'url' => $fi->url,
                                     ];
@@ -1473,21 +1607,19 @@ class AuthController extends Controller
 
                             if ($location){
                                 $addr_ = [
-                                    'country' => $location->country,
-                                    'city' => $location->city,
-                                    'address' => $location->address,
+                                   $location->country,
+                                    $location->city,
+                                    $location->address,
                                 ];
-                                array_push($addr,$addr_);
                             }else{
-                                $addr = null;
+                                $addr_ = null;
                             }
 
                             if($catefory_product){
                                 foreach ($catefory_product as $cate){
                                     $catefory = DB::table('category')->where('id', $cate->category_id)->first();
                                     $rs_catefory_ = [
-                                        'category_id' => $catefory->id,
-                                        'category_name' => $catefory->name,
+                                        $catefory->name,
                                     ];
                                     array_push($rs_catefory,$rs_catefory_);
                                 }
@@ -1515,9 +1647,9 @@ class AuthController extends Controller
                                 foreach ($order as $od){
                                     $or_lo = DB::table('order_location')->where('order_id', $od->id)->first();
                                     $order_lo_ = [
-                                        'country' => $or_lo->country,
-                                        'city' => $or_lo->city,
-                                        'address' => $or_lo->address,
+                                         $or_lo->country,
+                                         $or_lo->city,
+                                         $or_lo->address,
                                     ];
 
                                     array_push($order_lo,$order_lo_);
@@ -1544,6 +1676,18 @@ class AuthController extends Controller
                                 ], 400);
                             }
 
+                            if($option){
+                                foreach ($option as $op){
+                                    $option_item = DB::table('product_option')->where('id', $op->id)->first();
+                                    $option_item_ = [
+                                        $option_item->name,
+                                    ];
+                                    array_push($rs_option,$option_item_);
+                                }
+                            }else{
+                                $rs_option = null;
+                            }
+
                             $rs_product_ = [
                                 '_id' => $item->id,
                                 'time' => $item->created_at,
@@ -1553,23 +1697,25 @@ class AuthController extends Controller
                                 'description' => $item->description,
                                 'comment' => $rs_conment,
                                 'file' => $rs_file,
-                                'address' => $addr,
+                                'address' => $addr_,
                                 'quantity' => $item->quantity,
                                 'discount' => $item->discount,
+                                'option' => $rs_option,
                             ];
 
-                            array_push($rs_product,$rs_product_);
+
+                            $rs_ = [
+                                'product' => $rs_product_,
+                                'order' => $rs_order,
+                            ];
+
+                            array_push($rs,$rs_);
+
                         }
                     }
                     else{
-                        $rs_product = null;
-                        $rs_order  = null;
+                        $rs = null;
                     }
-
-                    $rs = [
-                        'product' => $rs_product,
-                        'order' => $rs_order,
-                    ];
 
                     $rs_ = [
                         "message" => "load selling manage product list: success",
@@ -1727,6 +1873,241 @@ class AuthController extends Controller
                     return response()->json([
                         "product" => $rs,
                     ], 200);
+                }
+                else{
+                    return response()->json([
+                        'protect' => 'miss',
+                    ], 400);
+                }
+            }
+        }
+    }
+
+    public function load_discount(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs_product = [];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $date_rq = $request->time;
+
+                    $date_rq_ = explode("-", $date_rq);
+                    $month = $date_rq_[1];
+                    $year = $date_rq_[0];
+                    $rs = [];
+
+                    $product = DB::table('product')
+                        ->whereRaw('EXTRACT(month from product.created_at) = ?', [$month])
+                        ->whereRaw('EXTRACT(year from product.created_at) = ?', [$year])
+                        ->get();
+
+
+                    if ($product) {
+                        foreach ($product as $item) {
+                            $rs_product = [];
+                            $rs_catefory = [];
+                            $address = [];
+                            $file = [];
+                            $option = [];
+
+                            if ($item->discount != null) {
+                                $catefory_product = DB::table('product_category')->where('product_id', $item->id)->get();
+                                $addr_product = DB::table('product_location')->where('product_id', $item->id)->first();
+                                $file_product = DB::table('product_file')->where('product_id', $item->id)->get();
+                                $option_product = DB::table('product_option')->where('product_id', $item->id)->get();
+
+                                if ($catefory_product) {
+                                    foreach ($catefory_product as $cate) {
+                                        $catefory = DB::table('category')->where('id', $cate->category_id)->first();
+                                        $rs_catefory_ = [
+                                            $catefory->name,
+                                        ];
+                                        array_push($rs_catefory, $rs_catefory_);
+                                    }
+                                } else {
+                                    $rs_catefory = null;
+                                }
+
+                                if ($addr_product) {
+                                    $address_ = [
+                                        $addr_product->country,
+                                        $addr_product->city,
+                                        $addr_product->address,
+                                    ];
+                                    array_push($address, $address_);
+                                } else {
+                                    $address = null;
+                                }
+
+                                if ($file_product) {
+                                    foreach ($file_product as $file_) {
+                                        $file__ = [
+                                            '_id' => $file_->id,
+                                            'type' => $file_->type,
+                                            'url' => $file_->url,
+                                        ];
+                                        array_push($file, $file__);
+                                    }
+                                } else {
+                                    $file = null;
+                                }
+
+                                if ($option_product) {
+                                    foreach ($option_product as $option_) {
+                                        $option__ = [
+                                            $option_->name,
+                                        ];
+                                        array_push($option, $option__);
+                                    }
+                                } else {
+                                    $option = null;
+                                }
+
+                                $rs_product_ = [
+                                    '_id' => $item->id,
+                                    'time' => $item->created_at,
+                                    'name' => $item->name,
+                                    'price' => $item->price,
+                                    'category' => $rs_catefory,
+                                    'option' => $option,
+                                    'description' => $item->description,
+                                    'file' => $file,
+                                    'address' => $address,
+                                    'quantity' => $item->quantity,
+                                    'discount' => $item->discount,
+                                ];
+
+                                array_push($rs_product, $rs_product_);
+
+
+                            }
+
+                            return response()->json([
+                                "product" => $rs_product,
+                            ], 200);
+
+
+                        }
+                    } else {
+                        $rs_product = null;
+                    }
+
+
+                }
+            }
+        }
+    }
+
+    public function load_cart(Request $request){
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs_product = [];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $account = $request->account;
+
+
+                    $product = DB::table('product')
+                        ->join('cart', 'product.id', '=', 'cart.product_id')
+                        ->where('cart.account_id', $account)
+                        ->get();
+
+                    if ($product) {
+                        ##load product on cart option and file
+
+                        foreach ($product as $item) {
+                            $rs_product = [];
+                            $file = [];
+                            $option = [];
+
+                            if ($item->discount != null) {
+                                $file_product = DB::table('product_file')->where('product_id', $item->id)->get();
+                                $option_product = DB::table('product_option')->where('product_id', $item->id)->get();
+
+
+                                if ($file_product) {
+                                    foreach ($file_product as $file_) {
+                                        $file__ = [
+                                            '_id' => $file_->id,
+                                            'type' => $file_->type,
+                                            'url' => $file_->url,
+                                        ];
+                                        array_push($file, $file__);
+                                    }
+                                } else {
+                                    $file = null;
+                                }
+
+                                if ($option_product) {
+                                    foreach ($option_product as $option_) {
+                                        $option__ = [
+                                            $option_->name,
+                                        ];
+                                        array_push($option, $option__);
+                                    }
+                                } else {
+                                    $option = null;
+                                }
+
+                                $rs_product_ = [
+                                    '_id' => $item->id,
+                                    'name' => $item->name,
+                                    'price' => $item->price,
+                                    'option' => $option,
+                                ];
+                                array_push($rs_product, $rs_product_);
+                            }
+                            else{
+                                $rs_product = null;
+                            }
+                        }
+                        $rs = [
+                            "message" => "success",
+                            "result" => $rs_product,
+                        ];
+
+                        return response()->json([
+                            "cart" => $rs,
+                        ],200);
+                    }
+                    else{
+                        $rs = [
+                            "cart" => "load cart item: empty list"
+                        ];
+
+                        return response()->json([
+                            "cart" => $rs,
+                        ],200);
+                    }
                 }
                 else{
                     return response()->json([
