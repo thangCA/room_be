@@ -48,7 +48,7 @@ class AuthController extends Controller
         if ($user == null) {
             return response()->json([
                 'authentication' => "handle authentication: wrong email or password",
-            ], 401);
+            ], 200);
         }
         if (password_verify($request->accountPassword, $user->accountPassword)) {
             $store_id = DB::table('store')->where('account_id', $user->id)->first();
@@ -83,7 +83,7 @@ class AuthController extends Controller
         } else {
             return response()->json([
                 'authentication' => "handle authentication: wrong email or password",
-            ], 401);
+            ], 200);
         }
 
     }
@@ -148,14 +148,23 @@ class AuthController extends Controller
             return response()->json([
                 'register' => 'handle register: invalid credentials',
                 'errors' => 'password not match'
-            ], 400);
+            ], 200);
         }
         $user_check = User::where('accountEmail', $request->accountEmail)->first();
         if ($user_check != null) {
             return response()->json([
-                'register' => 'handle register: invalid credentials',
+                'register' => 'handle register: email is existed',
                 'errors' => 'email already exists'
-            ], 400);
+            ], 200);
+        }
+        if ($request->accountPhone != null) {
+            $user_check = User::where('accountPhone', $request->accountPhone)->first();
+            if ($user_check != null) {
+                return response()->json([
+                    'register' => 'handle register: phone is existed',
+                    'errors' => 'phone already exists'
+                ], 200);
+            }
         }
 
         $user = DB::table('users')->insert(
@@ -842,7 +851,7 @@ class AuthController extends Controller
                                 'created_at' => now(),
                             ]);
                         return response()->json([
-                            'info' => 'create product: success',
+                            'product' => 'post product detail: success',
                         ], 200);
 
 
@@ -1397,6 +1406,332 @@ class AuthController extends Controller
                         ], 400);
                     }
 
+                }
+            }
+        }
+    }
+
+    public function load_store_product(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs = [];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $store = $request->query('store');
+                    $store_ = DB::table('store')->where('id', $store)->first();
+                    if ($store_ == null) {
+                        return response()->json([
+                            "product"=> "load selling manage product list: store is not existed"
+                        ], 400);
+                    }
+                    $product = DB::table('product')->where('store_id', $store)->get();
+
+                    $rs_product = [];
+                    $rs_order = [];
+
+
+                    if($product){
+                        foreach ($product as $item){
+                            print_r($item->name);
+                            $file = DB::table('product_file')->where('product_id', $item->id)->get();
+                            $location = DB::table('product_location')->where('id', $item->id)->first();
+                            $catefory_product = DB::table('product_category')->where('product_id', $item->id)->get();
+                            $order = DB::table('order')->where('product_id', $item->id)->get();
+                            $conment = DB::table('product_comment')->where('product_id', $item->id)->get();
+                            $order_lo = [];
+                            $rs_file =[];
+                            $addr = [];
+                            $rs_conment = [];
+                            $rs_catefory = [];
+                            if($file){
+                                foreach ($file as $fi) {
+                                    $r = [
+                                        'id' => $fi->id,
+                                        'type' => $fi->type,
+                                        'url' => $fi->url,
+                                    ];
+                                    array_push($rs_file,$r);
+                                }
+                            }else{
+                                $rs_file = null;
+                            }
+
+                            if ($location){
+                                $addr_ = [
+                                    'country' => $location->country,
+                                    'city' => $location->city,
+                                    'address' => $location->address,
+                                ];
+                                array_push($addr,$addr_);
+                            }else{
+                                $addr = null;
+                            }
+
+                            if($catefory_product){
+                                foreach ($catefory_product as $cate){
+                                    $catefory = DB::table('category')->where('id', $cate->category_id)->first();
+                                    $rs_catefory_ = [
+                                        'category_id' => $catefory->id,
+                                        'category_name' => $catefory->name,
+                                    ];
+                                    array_push($rs_catefory,$rs_catefory_);
+                                }
+                            }else{
+                                $rs_catefory = null;
+                            }
+
+                            if ($conment){
+                                foreach ($conment as $co){
+                                    $account = DB::table('account')->where('id', $co->account_id)->first();
+                                    $rs_conment_ = [
+                                        'account_id' => $account->id,
+                                        'account_name' => $account->name,
+                                        'account_avatar' => $account->avatar,
+                                        'comment' => $co->comment,
+                                    ];
+                                    array_push($rs_conment,$rs_conment_);
+                                }
+                            }
+                            else{
+                                $rs_conment = null;
+                            }
+
+                            if ($order){
+                                foreach ($order as $od){
+                                    $or_lo = DB::table('order_location')->where('order_id', $od->id)->first();
+                                    $order_lo_ = [
+                                        'country' => $or_lo->country,
+                                        'city' => $or_lo->city,
+                                        'address' => $or_lo->address,
+                                    ];
+
+                                    array_push($order_lo,$order_lo_);
+                                    $account_order = DB::table('account')->where('id', $od->account_id)->first();
+
+                                    $order_item_ = [
+                                        '_id' => $od->id,
+                                        'time' => $od->time,
+                                        'product' => $od->product_id,
+                                        'name' => $account_order->name,
+                                        'address' => $order_lo,
+                                        'quantity' => $od->quantity,
+                                        'price' => floatval($item->price) * intval($od->quantity),
+                                        'payment' => $od->payment,
+                                        'state' => $od->state,
+                                    ];
+
+                                    array_push($rs_order,$order_item_);
+
+                                }
+                            }else{
+                                return response()->json([
+                                    "product"=> "load selling manage product list: empty list"
+                                ], 400);
+                            }
+
+                            $rs_product_ = [
+                                '_id' => $item->id,
+                                'time' => $item->created_at,
+                                'name' => $item->name,
+                                'price' => $item->price,
+                                'category' => $rs_catefory,
+                                'description' => $item->description,
+                                'comment' => $rs_conment,
+                                'file' => $rs_file,
+                                'address' => $addr,
+                                'quantity' => $item->quantity,
+                                'discount' => $item->discount,
+                            ];
+
+                            array_push($rs_product,$rs_product_);
+                        }
+                    }
+                    else{
+                        $rs_product = null;
+                        $rs_order  = null;
+                    }
+
+                    $rs = [
+                        'product' => $rs_product,
+                        'order' => $rs_order,
+                    ];
+
+                    $rs_ = [
+                        "message" => "load selling manage product list: success",
+                        "result" => $rs,
+                    ];
+
+                    return response()->json([
+                        "product" => $rs_,
+                    ], 200);
+
+                }
+            }
+        }
+    }
+
+    public function load_product_at_month(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs_product = [];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $time = $request->time;
+
+                    $time_ = explode("-", $time);
+                    $month = $time_[1];
+                    $year = $time_[0];
+
+                    $product = DB::table('product')
+                        ->whereRaw('EXTRACT(month from product.created_at) = ?', [$month])
+                        ->whereRaw('EXTRACT(year from product.created_at) = ?', [$year])
+                        ->get();
+
+                    if ($product) {
+                        foreach ($product as $item) {
+                            $rs_product = [];
+                            $rs_catefory = [];
+                            $address = [];
+                            $file = [];
+                            $option = [];
+                            $comment = [];
+
+
+                            $catefory_product = DB::table('product_category')->where('product_id', $item->id)->get();
+                            $addr_product = DB::table('product_location')->where('product_id', $item->id)->first();
+                            $file_product = DB::table('product_file')->where('product_id', $item->id)->get();
+                            $option_product = DB::table('product_option')->where('product_id', $item->id)->get();
+                            $comment_product = DB::table('product_comment')->where('product_id', $item->id)->get();
+
+
+
+
+
+
+                            if($catefory_product){
+                                foreach ($catefory_product as $cate){
+                                    $catefory = DB::table('category')->where('id', $cate->category_id)->first();
+                                    $rs_catefory_ = [
+                                        $catefory->name,
+                                    ];
+                                    array_push($rs_catefory,$rs_catefory_);
+                                }
+                            }else{
+                                $rs_catefory = null;
+                            }
+
+                            if ($addr_product){
+                                $address_ = [
+                                    $addr_product->country,
+                                    $addr_product->city,
+                                    $addr_product->address,
+                                ];
+                                array_push($address,$address_);
+                            }else{
+                                $address = null;
+                            }
+
+                            if($file_product){
+                                foreach ($file_product as $file_){
+                                    $file__ = [
+                                        '_id' => $file_->id,
+                                        'type' => $file_->type,
+                                        'url' => $file_->url,
+                                    ];
+                                    array_push($file,$file__);
+                                }
+                            }else{
+                                $file = null;
+                            }
+
+                            if ($option_product){
+                                foreach ($option_product as $option_){
+                                    $option__ = [
+                                        $option_->name,
+                                    ];
+                                    array_push($option,$option__);
+                                }
+                            }else{
+                                $option = null;
+                            }
+
+                            if ($comment_product){
+                                foreach ($comment_product as $comment_){
+                                    $comment__ = [
+                                        'comment_id' => $comment_->id,
+                                        'comment_content' => $comment_->content,
+                                    ];
+                                    array_push($comment,$comment__);
+                                }
+                            }else{
+                                $comment = null;
+                            }
+
+                            $rs_product_ = [
+                                '_id' => $item->id,
+                                'time' => $item->created_at,
+                                'name' => $item->name,
+                                'price' => $item->price,
+                                'category' => $rs_catefory,
+                                'option' => $option,
+                                'description' => $item->description,
+                                'comment' => $comment,
+                                'file' => $file,
+                                'address' => $address,
+                                'quantity' => $item->quantity,
+                                'discount' => $item->discount,
+                            ];
+
+                            array_push($rs_product,$rs_product_);
+                        }
+                    }
+                    else{
+                        $rs_product = null;
+                    }
+
+                    $rs = [
+                        'message' => "success",
+                        'result' => $rs_product,
+                    ];
+
+                    return response()->json([
+                        "product" => $rs,
+                    ], 200);
+                }
+                else{
+                    return response()->json([
+                        'protect' => 'miss',
+                    ], 400);
                 }
             }
         }

@@ -50,6 +50,8 @@ Route::group([
         Route::get("/product/list/category/load", [AuthController::class, 'load_list_category']);
         Route::get("/product/list/name/load", [AuthController::class, 'load_name_product']);
         Route::get("/product/comment/post", [AuthController::class, 'comment_product']);
+        Route::get("/selling/manage/product/list/load", [AuthController::class, 'load_store_product']);
+        Route::get("/product/list/best-selling", [AuthController::class, 'load_product_at_month']);
 
 
 
