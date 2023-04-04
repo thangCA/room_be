@@ -1628,7 +1628,7 @@ class AuthController extends Controller
 
                             if ($conment){
                                 foreach ($conment as $co){
-                                    $account = DB::table('account')->where('id', $co->account_id)->first();
+                                    $account = DB::table('users')->where('id', $co->account_id)->first();
                                     $rs_conment_ = [
                                         'account_id' => $account->id,
                                         'account_name' => $account->name,
@@ -1652,13 +1652,12 @@ class AuthController extends Controller
                                     ];
 
                                     array_push($order_lo,$order_lo_);
-                                    $account_order = DB::table('account')->where('id', $od->account_id)->first();
 
                                     $order_item_ = [
                                         '_id' => $od->id,
                                         'time' => $od->time,
                                         'product' => $od->product_id,
-                                        'name' => $account_order->name,
+                                        'name' => $od->name,
                                         'address' => $order_lo,
                                         'quantity' => $od->quantity,
                                         'price' => floatval($item->price) * intval($od->quantity),
@@ -2283,7 +2282,7 @@ class AuthController extends Controller
     {
         $access_token = Cookie::get('access_token');
         $user_id = Cookie::get('user_id');
-        $rs= [];
+        $rs = [];
 
         if ($access_token == null and $user_id == null) {
             return response()->json([
@@ -2304,154 +2303,155 @@ class AuthController extends Controller
 
 
                     $order_id = DB::table('order')->where('account_id', $account)->get();
-                    if ($order_id -> isEmpty() == false){
-                        #################### order detail ####################
-                        foreach ($order_id as $item) {
-                            $order_detail = DB::table('order_detail')->where('order_id', $item->id)->get();
-                            if ($order_detail) {
-                                foreach ($order_detail as $item_) {
-                                    $item_order = DB::table('order')->where('id', $item_->order_id)->first();
-                                    $location_oder = DB::table('order_location')->where('order_id', $item_->order_id)->first();
 
-                                    $product = DB::table('product')->where('id', $item_->product_id)->first();
-
-                                    $rs_catefory = [];
-                                    $address = [];
-                                    $file = [];
-                                    $option = [];
-                                    $comment = [];
-
-
-                                    $catefory_product = DB::table('product_category')->where('product_id', $product->id)->get();
-                                    $addr_product = DB::table('product_location')->where('product_id', $product->id)->first();
-                                    $file_product = DB::table('product_file')->where('product_id', $product->id)->get();
-                                    $option_product = DB::table('product_option')->where('product_id', $product->id)->get();
-                                    $comment_product = DB::table('product_comment')->where('product_id', $product->id)->get();
-
-
-                                    if($catefory_product){
-                                        foreach ($catefory_product as $cate){
-                                            $catefory = DB::table('category')->where('id', $cate->category_id)->first();
-                                            $rs_catefory_ = [
-                                                $catefory->name,
-                                            ];
-                                            array_push($rs_catefory,$rs_catefory_);
-                                        }
-                                    }else{
-                                        $rs_catefory = null;
-                                    }
-
-                                    if ($addr_product){
-                                        $address_ = [
-                                            $addr_product->country,
-                                            $addr_product->city,
-                                            $addr_product->address,
-                                        ];
-                                        array_push($address,$address_);
-                                    }else{
-                                        $address = null;
-                                    }
-
-                                    if($file_product){
-                                        foreach ($file_product as $file_){
-                                            $file__ = [
-                                                '_id' => $file_->id,
-                                                'type' => $file_->type,
-                                                'url' => $file_->url,
-                                            ];
-                                            array_push($file,$file__);
-                                        }
-                                    }else{
-                                        $file = null;
-                                    }
-
-                                    if ($option_product){
-                                        foreach ($option_product as $option_){
-                                            $option__ = [
-                                                $option_->name,
-                                            ];
-                                            array_push($option,$option__);
-                                        }
-                                    }else{
-                                        $option = null;
-                                    }
-
-                                    if ($comment_product){
-                                        foreach ($comment_product as $comment_){
-                                            $comment__ = [
-                                                'comment_id' => $comment_->id,
-                                                'comment_content' => $comment_->content,
-                                            ];
-                                            array_push($comment,$comment__);
-                                        }
-                                    }else{
-                                        $comment = null;
-                                    }
-
-                                    $rs_product_ = [
-                                        '_id' => $product->id,
-                                        'time' => $product->created_at,
-                                        'name' => $product->name,
-                                        'price' => $product->price,
-                                        'category' => $rs_catefory,
-                                        'option' => $option,
-                                        'description' => $product->description,
-                                        'comment' => $comment,
-                                        'file' => $file,
-                                        'address' => $address,
-                                        'quantity' => $product->quantity,
-                                        'discount' => $product->discount,
-                                    ];
-
-                                    $rs_order = [
-                                       '_id' => $item_order->id,
-                                        'time' => $item_order->created_at,
-                                        'product' => $item_order->product_id,
-                                        'name' => $item_order->name,
-                                        'phone' => $item_order->phone,
-                                        $address = [
-                                            $item_order->country,
-                                            $item_order->city,
-                                            $item_order->address,
-                                        ],
-                                        'option' => $item_order->option,
-                                        'quantity' => $item_order->quantity,
-                                        'price' => $item_order->price,
-                                        'payment' => $item_order->payment,
-                                        'state' => $item_order->state,
-                                    ];
-
-                                    $rs_ =[
-                                        "order" => $rs_order,
-                                        "product" => $rs_product_,
-                                    ];
-
-                                    array_push($rs,$rs_);
-
-
-                                }
-                            }
-
-                        }
-                    }else{
-                        $rs_order = [
+                    if ($order_id == null) {
+                        $rs_err = [
                             "message" => "load order list: empty",
                         ];
 
+                        return response()->json([
+                            'order' => $rs_err,
+                        ], 200);
+                    } else {
+                        foreach ($order_id as $item) {
+                            $item_order = DB::table('order')->where('id', $item->id)->first();
+                            $location_oder = DB::table('order_location')->where('order_id', $item->id)->first();
+
+                            $product = DB::table('product')->where('id', $item->product_id)->first();
+
+                            $rs_catefory = [];
+                            $address = [];
+                            $file = [];
+                            $option = [];
+                            $comment = [];
+
+
+                            $catefory_product = DB::table('product_category')->where('product_id', $product->id)->get();
+                            $addr_product = DB::table('product_location')->where('product_id', $product->id)->first();
+                            $file_product = DB::table('product_file')->where('product_id', $product->id)->get();
+                            $option_product = DB::table('product_option')->where('product_id', $product->id)->get();
+                            $comment_product = DB::table('product_comment')->where('product_id', $product->id)->get();
+
+
+                            if ($catefory_product) {
+                                foreach ($catefory_product as $cate) {
+                                    $catefory = DB::table('category')->where('id', $cate->category_id)->first();
+                                    $rs_catefory_ = [
+                                        $catefory->name,
+                                    ];
+                                    array_push($rs_catefory, $rs_catefory_);
+                                }
+                            } else {
+                                $rs_catefory = null;
+                            }
+
+                            if ($addr_product) {
+                                $address_ = [
+                                    $addr_product->country,
+                                    $addr_product->city,
+                                    $addr_product->address,
+                                ];
+                                array_push($address, $address_);
+                            } else {
+                                $address = null;
+                            }
+
+                            if ($file_product) {
+                                foreach ($file_product as $file_) {
+                                    $file__ = [
+                                        '_id' => $file_->id,
+                                        'type' => $file_->type,
+                                        'url' => $file_->url,
+                                    ];
+                                    array_push($file, $file__);
+                                }
+                            } else {
+                                $file = null;
+                            }
+
+                            if ($option_product) {
+                                foreach ($option_product as $option_) {
+                                    $option__ = [
+                                        $option_->name,
+                                    ];
+                                    array_push($option, $option__);
+                                }
+                            } else {
+                                $option = null;
+                            }
+
+                            if ($comment_product) {
+                                foreach ($comment_product as $comment_) {
+                                    $comment__ = [
+                                        'comment_id' => $comment_->id,
+                                        'comment_content' => $comment_->content,
+                                    ];
+                                    array_push($comment, $comment__);
+                                }
+                            } else {
+                                $comment = null;
+                            }
+
+                            $rs_product_ = [
+                                '_id' => $product->id,
+                                'time' => $product->created_at,
+                                'name' => $product->name,
+                                'price' => $product->price,
+                                'category' => $rs_catefory,
+                                'option' => $option,
+                                'description' => $product->description,
+                                'comment' => $comment,
+                                'file' => $file,
+                                'address' => $address,
+                                'quantity' => $product->quantity,
+                                'discount' => $product->discount,
+                            ];
+
+                            $rs_order = [
+                                '_id' => $item_order->id,
+                                'time' => $item_order->created_at,
+                                'product' => $item_order->product_id,
+                                'name' => $item_order->name,
+                                'phone' => $item_order->phone,
+                                'address' =>$address = [
+                                    $location_oder->country,
+                                    $location_oder->city,
+                                    $location_oder->address,
+                                    ],
+                                'option' => $item_order->option,
+                                'quantity' => $item_order->quantity,
+                                'price' => $item_order->price,
+                                'payment' => $item_order->payment,
+                                'state' => $item_order->state,
+                            ];
+
+                            $rs_ = [
+                                "order" => $rs_order,
+                                "product" => $rs_product_,
+                            ];
+
+                            array_push($rs, $rs_);
+                        }
+
+                        $rs_success = [
+                            "message" => "load order list: success",
+                            "result" => $rs,
+                        ];
 
                         return response()->json([
-                            'order' => $rs_order,
+                            'order' => $rs_success,
                         ], 200);
                     }
-                }else{
-                    return response()->json([
-                        'protect' => "miss",
-                    ], 200);
                 }
-
+                else {
+                    return response()->json([
+                        'protect' => 'miss',
+                    ], 400);
+                }
             }
         }
     }
+
 
     public function create_order(Request $request){
         $access_token = Cookie::get('access_token');
@@ -2499,6 +2499,7 @@ class AuthController extends Controller
                         "account_id" => $order_request['account'],
                         "product_id" => $order_request['product'],
                         "time" => $order_request['orderTime'],
+                        "name" => $order_request['orderName'],
                         "phone" => $order_request['orderPhone'],
                         "payment" => $order_request['orderPaymentOption'],
                         "quantity" => $order_request['orderQuantity'],
