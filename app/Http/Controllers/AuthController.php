@@ -2658,6 +2658,70 @@ class AuthController extends Controller
     }
 
 
+    public function refuse_order(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs = [];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        }
+
+        else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+
+                    $order_id = $request->order;
+                    $account_id = $request->account;
+
+                    $account = DB::table('users')->where('id', $account_id)->first();
+
+                    if ($account == null) {
+
+                        return response()->json([
+                            'order' => 'refuse order: account is not existed',
+                        ], 200);
+                    }
+
+                    $order = DB::table('order')->where('id', $order_id)->first();
+
+                    if ($order == null) {
+
+                        return response()->json([
+                            'order' => 'refuse order: order is not existed',
+                        ], 200);
+                    }
+                    $product_id = $order->product_id;
+                    $product = DB::table('product')->where('id', $product_id)->first();
+                    DB::table('product')->where('id', $product_id)->update(['quantity' => intval($order->quantity) + intval($product->quantity)]);
+                    DB::table('order_location')->where('order_id', $order_id)->delete();
+                    DB::table('order')->where('id', $order_id)->delete();
+
+                    return response()->json([
+                        'order' => 'refuse order: success',
+                    ], 200);
+                }
+                else{
+                    return response()->json([
+                        'protect' => "miss",
+                    ], 200);
+                }
+            }
+        }
+    }
+
+
 
     public
     function check_time($access_token, $refesh_token)

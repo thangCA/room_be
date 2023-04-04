@@ -56,14 +56,20 @@ Route::group([
         Route::get("/product/comment/post", [AuthController::class, 'comment_product']);
         Route::get("/selling/manage/product/list/load", [AuthController::class, 'load_store_product']);
         Route::get("/product/list/new", [AuthController::class, 'load_product_at_month']);
+
+        //================================================================================================//
         Route::get("/cart/item/load", [AuthController::class, 'load_cart']);
         Route::get("/cart/item/add", [AuthController::class, 'add_to_cart']);
         Route::get("/cart/item/delete", [AuthController::class, 'delete_cart']);
         Route::get("/cart/item/update", [AuthController::class, 'update_cart']);
+
+//================================================================================================//
+
         Route::get("/order/list/load", [AuthController::class, 'load_order']);
         Route::post("order/detail/post", [AuthController::class, 'create_order']);
         Route::get("/order/confirm", [AuthController::class, 'confirm_order']);
         Route::get("/order/paid", [AuthController::class, 'paid_order']);
+        Route::get("/order/refuse", [AuthController::class, 'refuse_order']);
 
 
         // Route get connect with param message = checking
