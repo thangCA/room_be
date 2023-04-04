@@ -6,6 +6,7 @@ use App\Mail\ThangDuc;
 use App\Models\store;
 use App\Models\Token;
 use DateTime;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Http\Request;
 
 use App\Models\User;
@@ -2450,6 +2451,86 @@ class AuthController extends Controller
 
             }
         }
+    }
+
+    public function create_order(Request $request){
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs= [];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+
+                    $account = $request->account;
+                    $product = $request->product;
+
+                    $account_query = DB::table('users')->where('id', $account)->first();
+                    $product_query = DB::table('product')->where('id', $product)->first();
+
+                    if ($account_query == null ){
+                        return response()->json([
+                            "order" => 'post order detail: account is not existed',
+                        ], 200);
+                    }
+
+                    if ($product_query == null ){
+                        return response()->json([
+                            "order" => 'post order detail: product is not existed',
+                        ], 200);
+                    }
+
+                    $order_request  = $request->all();
+
+
+                    $order_create = [
+                        "account_id" => $order_request['account'],
+                        "product_id" => $order_request['product'],
+                        "time" => $order_request['orderTime'],
+                        "phone" => $order_request['orderPhone'],
+                        "payment" => $order_request['orderPaymentOption'],
+                        "quantity" => $order_request['orderQuantity'],
+                        "option" => $order_request['orderOption'],
+                        "price" => intval($order_request['orderPrice'][1]) + intval($order_request['orderPrice'][0]),
+                        "state" => "waiting"
+                    ];
+
+                    $order_get_id = DB::table('order')->insertGetId($order_create);
+
+                    $order_lo = [
+                        "order_id" => $order_get_id,
+                        "country" => $order_request['orderAddress'][0],
+                        "city" => $order_request['orderAddress'][1],
+                        "address" => $order_request['orderAddress'][2],
+                    ];
+
+                    DB::table('order_location')->insertGetId($order_lo);
+
+                    return response()->json([
+                        "order" => 'post order detail: success',
+                    ], 200);
+
+                }
+                else{
+                    return response()->json([
+                        'protect' => "miss",
+                    ], 200);
+                }
+            }
+        }
+
     }
 
 

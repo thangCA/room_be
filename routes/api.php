@@ -57,6 +57,7 @@ Route::group([
         Route::get("/cart/item/delete", [AuthController::class, 'delete_cart']);
         Route::get("/cart/item/update", [AuthController::class, 'update_cart']);
         Route::get("/order/list/load", [AuthController::class, 'load_order']);
+        Route::post("order/detail/post", [AuthController::class, 'create_order']);
 
 
         // Route get connect with param message = checking
