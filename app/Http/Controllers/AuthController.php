@@ -1652,15 +1652,25 @@ class AuthController extends Controller
                                     ];
 
                                     array_push($order_lo,$order_lo_);
-
+                                    $price = json_decode($od->prices, true);
+                                    $od_lo = DB::table('order_location')->where('order_id', $od->id)->first();
                                     $order_item_ = [
                                         '_id' => $od->id,
-                                        'time' => $od->time,
-                                        'product' => $od->product_id,
+                                        'time' => $od->created_at,
+                                        'product' =>$od->product_id,
                                         'name' => $od->name,
-                                        'address' => $order_lo,
+                                        'phone' => $od->phone,
+                                        'address' =>[
+                                            $od_lo->country,
+                                            $od_lo->city,
+                                            $od_lo->address,
+                                        ],
+                                        'option' => $od->option,
                                         'quantity' => $od->quantity,
-                                        'price' => floatval($item->price) * intval($od->quantity),
+                                        'price' => [
+                                            $price[0],
+                                            $price[1],
+                                        ],
                                         'payment' => $od->payment,
                                         'state' => $od->state,
                                     ];
@@ -2407,6 +2417,8 @@ class AuthController extends Controller
                                 'discount' => $product->discount,
                             ];
 
+                            $price = json_decode($item_order->prices, true);
+
                             $rs_order = [
                                 '_id' => $item_order->id,
                                 'time' => $item_order->created_at,
@@ -2420,7 +2432,10 @@ class AuthController extends Controller
                                     ],
                                 'option' => $item_order->option,
                                 'quantity' => $item_order->quantity,
-                                'price' => $item_order->price,
+                                'price' => [
+                                    $price[0],
+                                    $price[1],
+                                ],
                                 'payment' => $item_order->payment,
                                 'state' => $item_order->state,
                             ];
@@ -2494,6 +2509,8 @@ class AuthController extends Controller
 
                     $order_request  = $request->all();
 
+                    $prices = json_encode($order_request['orderPrice']);
+
 
                     $order_create = [
                         "account_id" => $order_request['account'],
@@ -2504,8 +2521,9 @@ class AuthController extends Controller
                         "payment" => $order_request['orderPaymentOption'],
                         "quantity" => $order_request['orderQuantity'],
                         "option" => $order_request['orderOption'],
-                        "price" => intval($order_request['orderPrice'][1]) + intval($order_request['orderPrice'][0]),
-                        "state" => "waiting"
+                        "prices" => $prices ,
+                        "state" => "waiting",
+                        "created_at" => now(),
                     ];
 
                     $order_get_id = DB::table('order')->insertGetId($order_create);
@@ -2532,6 +2550,63 @@ class AuthController extends Controller
             }
         }
 
+    }
+
+    public function confirm_order(Request $request){
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs = [];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+
+                    $order_id = $request->order;
+
+                    $product_order = DB::table('order')->where('id', $order_id)->first();
+                    $product_id = $product_order->product_id;
+
+                    $product = DB::table('product')->where('id', $product_id)->first();
+
+                    $store_product = $product->store_id;
+
+                    $account_product = DB::table('store')->where('id', $store_product)->first();
+                    $account_product = $account_product->account_id;
+
+
+
+                    if($account_product == $user_id){
+                        $order = DB::table('order')->where('id', $order_id)->update(['state' => 'confirmed']);
+                        return response()->json([
+                            "order" => 'confirm order: success',
+                        ], 200);
+                    }
+                    else{
+                        return response()->json([
+                            "order" => 'confirm order: order is not existed',
+                        ], 200);
+                    }
+
+                }
+                else{
+                    return response()->json([
+                        'protect' => "miss",
+                    ], 200);
+                }
+            }
+        }
     }
 
 

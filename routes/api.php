@@ -40,6 +40,10 @@ Route::group([
 
         //================================================================================================//
 
+        Route::get('best-selling', [AuthController::class, 'add_category']);
+
+        //================================================================================================//
+
         Route::post('/product/detail/post', [AuthController::class, 'create_product']);
         Route::get('/product/detail/load', [AuthController::class, 'load_product']);
         Route::post('/product/manage/detail/edit', [AuthController::class, 'update_product']); //
@@ -58,6 +62,7 @@ Route::group([
         Route::get("/cart/item/update", [AuthController::class, 'update_cart']);
         Route::get("/order/list/load", [AuthController::class, 'load_order']);
         Route::post("order/detail/post", [AuthController::class, 'create_order']);
+        Route::get("/order/confirm", [AuthController::class, 'confirm_order']);
 
 
         // Route get connect with param message = checking

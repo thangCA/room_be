@@ -20,9 +20,12 @@ class order extends Model
         'payment',
         'state',
         'phone',
-        'price'
+        'prices'
     ];
 
+    protected $casts = [
+        'prices' => 'array'
+    ];
     public function product()
     {
         return $this->belongsTo('App\Models\product');
