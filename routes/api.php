@@ -70,6 +70,7 @@ Route::group([
         Route::get("/order/confirm", [AuthController::class, 'confirm_order']);
         Route::get("/order/paid", [AuthController::class, 'paid_order']);
         Route::get("/order/refuse", [AuthController::class, 'refuse_order']);
+        Route::get("/order/cancel", [AuthController::class, 'cancel_order']);
 
 
         // Route get connect with param message = checking
