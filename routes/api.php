@@ -63,6 +63,7 @@ Route::group([
         Route::get("/order/list/load", [AuthController::class, 'load_order']);
         Route::post("order/detail/post", [AuthController::class, 'create_order']);
         Route::get("/order/confirm", [AuthController::class, 'confirm_order']);
+        Route::get("/order/paid", [AuthController::class, 'paid_order']);
 
 
         // Route get connect with param message = checking

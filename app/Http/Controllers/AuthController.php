@@ -2609,6 +2609,54 @@ class AuthController extends Controller
         }
     }
 
+    public function paid_order(Request $request)
+    {
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs = [];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        } else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+
+                    $order_id = $request->order;
+
+                    $order = DB::table('order')->where('id', $order_id)->first();
+
+                    if($order->state == 'confirmed'){
+                        $order = DB::table('order')->where('id', $order_id)->update(['payment' => 'paid']);
+                        return response()->json([
+                            "order" => 'paid order: success',
+                        ], 200);
+                    }
+                    else{
+                        return response()->json([
+                            "order" => 'paid order: order is not existed',
+                        ], 200);
+                    }
+
+                }
+                else{
+                    return response()->json([
+                        'protect' => "miss",
+                    ], 200);
+                }
+            }
+        }
+    }
+
 
 
     public
