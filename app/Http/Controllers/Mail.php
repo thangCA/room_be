@@ -8,5 +8,9 @@ use Illuminate\Support\Facades\Mail;
 
 class Mail extends Controller
 {
-    
+/*    ## print this = 3
+    ##print PI in mathFunction*/
+
 }
+
+//aaaa

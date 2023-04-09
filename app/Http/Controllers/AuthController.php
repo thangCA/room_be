@@ -2783,6 +2783,39 @@ class AuthController extends Controller
         }
     }
 
+    public function best_selling(Request $request){
+        $access_token = Cookie::get('access_token');
+        $user_id = Cookie::get('user_id');
+        $rs = [];
+
+        if ($access_token == null and $user_id == null) {
+            return response()->json([
+                'protect' => 'miss',
+            ], 400);
+        }
+
+        else {
+            $redis = new Redis();
+            $redis->connect('127.0.0.1', 6379);
+            $data = $redis->get($user_id);
+            if ($data == null) {
+                return response()->json([
+                    'protect' => 'miss',
+                ], 400);
+            } else {
+                $data = json_decode($data, true);
+                if ($data['access_token'] == $access_token) {
+                    $time = $request->time;
+
+                    $time_ = explode("-", $time);
+                    $month = $time_[1];
+                    $year = $time_[0];
+
+                }
+            }
+        }
+    }
+
 
 
     public

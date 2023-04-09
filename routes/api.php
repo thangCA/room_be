@@ -23,6 +23,9 @@ Route::group([
     function ($router){
         Route::post('/authentication', [AuthController::class, 'login'])->name('authentication');
         Route::post('/registration', [AuthController::class, 'register'])->name('registration');
+
+        //================================================================================================//
+
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::post('/refresh', [AuthController::class, 'refresh'])->name('refresh');
         Route::get('/account/manage/info/load', [AuthController::class, 'userProfile']);
@@ -48,7 +51,7 @@ Route::group([
         Route::get('/product/detail/load', [AuthController::class, 'load_product']);
         Route::post('/product/manage/detail/edit', [AuthController::class, 'update_product']); //
         Route::post("/product/manage/detail/add", [AuthController::class, 'add_product_item']);
-        Route::post("/product/manage/detail/delete", [AuthController::class, 'delete_product_item']);
+        Route::get("/product/manage/detail/delete", [AuthController::class, 'delete_product_item']);
         Route::get("/product/manage/delete", [AuthController::class, 'delete_product']);
         Route::post("/product/search", [AuthController::class, 'search_product']);
         Route::get("/product/list/category/load", [AuthController::class, 'load_list_category']);
