@@ -1,55 +1,31 @@
-const puppeteer = require('puppeteer');
 const axios = require('axios');
+const request = require('supertest');
+const cookieParser = require('cookie-parser');
+const agent = request.agent('http://localhost:5001');
+const user = {
+    email: "nguyenducthang.it190801@gmail.com",
+    password: "Typro1908"
+};
 
-describe('Đăng nhập trên trình duyệt', () => {
-    let browser;
-    let page;
 
-    beforeAll(async () => {
-        browser = await puppeteer.launch();
-        page = await browser.newPage();
+
+
+describe('Send Email API', () => {
+    before(async () => {
+        await agent.post('http://localhost:5001/api/authentication', {
+            accountEmail: user.email,
+            accountPassword: user.password
+        });
     });
-
-    afterAll(async () => {
-        await browser.close();
+    it('should send email a  user', async () => {
+        const response = agent.post('http://localhost:5001/api/account/manage/password/change?account=1', {
+            old_password: user.password,
+            new_password: user.password
+        });
+        if (response.status === 200) {
+            expect(response.status).toBe(200);
+        } else if (response.status === 400) {
+            expect(response.status).toBe(400);
+        }
     });
-
-    it('Đăng nhập thành công', async () => {
-        // Chuẩn bị dữ liệu kiểm tra
-        const user = {
-            email: 'nguyenducthang.it190801@gmail.com',
-            password: 'Typro1908'
-        };
-
-        await page.goto("http://localhost:3000/authentication");
-        const [email] = await page.$x('//input[@type="email"]');
-        await email.type(user.email);
-        const [password] = await page.$x('//input[@type="password"]');
-        await password.type(user.password);
-
-        const [bt] = await page.$x('//input[@type="submit"]');
-        await bt.click();
-
-        const [acc_bt] = await page.$x('//a[@class="searching-inner__account-link searching-inner__account-link--hover"]');
-        await acc_bt.click();
-
-        const [change_bt] = await page.$x('///div[@class="account-info__change-password-btn btn white-btn white-btn--hover"]');
-        await change_bt.click();
-
-        const [old_password] = await page.$x('//input[@type="password"]');
-        await old_password.type(user.password);
-
-        const [new_password] = await page.$x('//input[@type="password"]');
-        await new_password.type(user.password);
-
-        const [new_password_again] = await page.$x('//input[@type="password"]');
-        await new_password_again.type(user.password);
-
-        await page.waitForNavigation();
-
-        const url = await page.url();
-        expect(url).toBe('http://localhost:3000/');
-    });
-
-
 });

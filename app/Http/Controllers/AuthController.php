@@ -228,6 +228,7 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
+
         $accountPassword_confirmation = $request->accountPassword;
         if ($request->accountPassword != $accountPassword_confirmation) {
             return response()->json([
